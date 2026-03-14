@@ -13,70 +13,71 @@ class Page extends Model
 {
     use HasFactory, HasUlids;
 
-    protected $fillable = [
-        'user_id',
-        'name',
-        'slug',
-        'is_public',
-    ];
+    protected $fillable = ['user_id', 'name', 'slug', 'is_public'];
 
-    protected $casts = [
-        'is_public' => 'boolean',
-    ];
+    protected $casts = ['is_public' => 'boolean'];
 
-    // ── Relationships ────────────────────────────────────────────────────────
+    // ── Relationships ─────────────────────────────────────────────────────────
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Storage path helpers ──────────────────────────────────────────────────
 
     /**
-     * Absolute path to this page's storage root.
+     * Path relative to the "pages" disk root (storage/app/pages/).
+     * Used with Storage::disk('pages').
+     *   e.g.  my-site/index.html
      */
     public function storagePath(string $relative = ''): string
     {
-        $base = storage_path("app/pages/{$this->slug}");
-        return $relative ? $base . '/' . ltrim($relative, '/') : $base;
+        return $relative
+            ? $this->slug . '/' . ltrim($relative, '/')
+            : $this->slug;
     }
 
     /**
-     * Laravel disk-relative path (for Storage facade calls).
+     * Path relative to the default "local" disk root (storage/app/).
+     * Used with Storage::disk('local') / the Storage facade without a disk.
+     *   e.g.  pages/my-site/index.html
      */
     public function diskPath(string $relative = ''): string
     {
-        $base = "pages/{$this->slug}";
+        $base = 'pages/' . $this->slug;
         return $relative ? $base . '/' . ltrim($relative, '/') : $base;
     }
 
     /**
-     * Public URL for subdomain access.
+     * Ensure the storage directory exists.
      */
+    public function ensureStorageExists(): void
+    {
+        Storage::disk('pages')->makeDirectory($this->slug);
+    }
+
+    // ── URL helpers ───────────────────────────────────────────────────────────
+
     public function subdomainUrl(string $path = ''): string
     {
-        $base = "https://{$this->slug}." . config('app.base_domain', 'statichtmlsites.mtex.dev');
-        return $path ? $base . '/' . ltrim($path, '/') : $base . '/';
+        $base = 'https://' . $this->slug . '.' . config('app.base_domain', 'statichtmlsites.mtex.dev');
+        return $path ? rtrim($base, '/') . '/' . ltrim($path, '/') : $base . '/';
     }
 
-    /**
-     * Public URL for path-based access.
-     */
     public function pathUrl(string $path = ''): string
     {
-        $base = config('app.url') . '/' . $this->slug;
+        $base = rtrim(config('app.url'), '/') . '/' . $this->slug;
         return $path ? $base . '/' . ltrim($path, '/') : $base . '/';
     }
 
-    /**
-     * Generate a unique slug from a name.
-     */
+    // ── Slug factory ──────────────────────────────────────────────────────────
+
     public static function makeUniqueSlug(string $name): string
     {
-        $slug = Str::slug($name);
+        $slug     = Str::slug($name);
         $original = $slug;
-        $counter = 1;
+        $counter  = 1;
 
         while (static::where('slug', $slug)->exists()) {
             $slug = "{$original}-{$counter}";
@@ -86,31 +87,30 @@ class Page extends Model
         return $slug;
     }
 
-    // ── Boot ─────────────────────────────────────────────────────────────────
+    // ── Model events ──────────────────────────────────────────────────────────
 
     protected static function booted(): void
     {
-        // Ensure storage directory exists when a page is created
         static::created(function (Page $page) {
-            Storage::makeDirectory($page->diskPath());
+            Storage::disk('pages')->makeDirectory($page->slug);
 
-            // Bootstrap with a blank index.html
-            if (! Storage::exists($page->diskPath('index.html'))) {
-                Storage::put($page->diskPath('index.html'), static::defaultHtml($page->name));
+            if (! Storage::disk('pages')->exists($page->storagePath('index.html'))) {
+                Storage::disk('pages')->put(
+                    $page->storagePath('index.html'),
+                    static::defaultHtml($page->name)
+                );
             }
         });
 
-        // Remove files when a page is deleted
         static::deleted(function (Page $page) {
-            Storage::deleteDirectory($page->diskPath());
+            Storage::disk('pages')->deleteDirectory($page->slug);
         });
 
-        // If slug changes, rename the storage directory
         static::updating(function (Page $page) {
             if ($page->isDirty('slug')) {
                 $old = $page->getOriginal('slug');
                 $new = $page->slug;
-                Storage::move("pages/{$old}", "pages/{$new}");
+                Storage::disk('pages')->move($old, $new);
             }
         });
     }

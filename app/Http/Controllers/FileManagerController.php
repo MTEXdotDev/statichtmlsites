@@ -7,7 +7,13 @@ use App\Services\FileManagerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use RuntimeException;
 
+/**
+ * REST/JSON API for the file manager.
+ * The primary UI is the Livewire\FileManager component; this controller
+ * exists for programmatic / JS access and is also used by the manager page.
+ */
 class FileManagerController extends Controller
 {
     public function __construct(private readonly FileManagerService $fm) {}
@@ -16,112 +22,103 @@ class FileManagerController extends Controller
 
     public function index(Request $request, string $slug): View
     {
-        $page = $this->authorizedPage($request, $slug);
+        $page = $this->ownedPage($request, $slug);
         return view('pages.manager', compact('page'));
     }
 
-    // ── API endpoints ─────────────────────────────────────────────────────────
+    // ── JSON endpoints ────────────────────────────────────────────────────────
 
-    /** List all files/folders as a tree */
     public function list(Request $request, string $slug): JsonResponse
     {
-        $page = $this->authorizedPage($request, $slug);
-        return response()->json($this->fm->tree($page));
+        return $this->run(fn () => $this->fm->tree($this->ownedPage($request, $slug)));
     }
 
-    /** Read a single file's content */
     public function read(Request $request, string $slug): JsonResponse
     {
-        $page = $this->authorizedPage($request, $slug);
-        $path = $request->query('path', '');
-
-        return response()->json([
-            'content' => $this->fm->read($page, $path),
-            'path'    => $path,
-        ]);
+        return $this->run(function () use ($request, $slug) {
+            $page = $this->ownedPage($request, $slug);
+            $path = $request->query('path', '');
+            return ['content' => $this->fm->read($page, $path), 'path' => $path];
+        });
     }
 
-    /** Save a text file */
     public function save(Request $request, string $slug): JsonResponse
     {
-        $page = $this->authorizedPage($request, $slug);
-        $data = $request->validate([
-            'path'    => ['required', 'string'],
-            'content' => ['required', 'string'],
-        ]);
-
-        $this->fm->save($page, $data['path'], $data['content']);
-        return response()->json(['ok' => true]);
+        return $this->run(function () use ($request, $slug) {
+            $data = $request->validate(['path' => 'required|string', 'content' => 'required|string']);
+            $this->fm->save($this->ownedPage($request, $slug), $data['path'], $data['content']);
+            return ['ok' => true];
+        });
     }
 
-    /** Create a new blank text file */
     public function create(Request $request, string $slug): JsonResponse
     {
-        $page = $this->authorizedPage($request, $slug);
-        $data = $request->validate([
-            'path' => ['required', 'string'],
-        ]);
-
-        $this->fm->createFile($page, $data['path']);
-        return response()->json(['ok' => true, 'tree' => $this->fm->tree($page)]);
+        return $this->run(function () use ($request, $slug) {
+            $data = $request->validate(['path' => 'required|string']);
+            $page = $this->ownedPage($request, $slug);
+            $this->fm->createFile($page, $data['path']);
+            return ['ok' => true, 'tree' => $this->fm->tree($page)];
+        });
     }
 
-    /** Upload binary or text file(s) */
     public function upload(Request $request, string $slug): JsonResponse
     {
-        $page = $this->authorizedPage($request, $slug);
-        $maxMb = (int) config('filesystems.max_upload_mb', 50);
-
-        $request->validate([
-            'file'   => ["required", "file", "max:{$maxMb}000"],
-            'folder' => ['nullable', 'string'],
-        ]);
-
-        $this->fm->upload($page, $request->file('file'), $request->input('folder', ''));
-        return response()->json(['ok' => true, 'tree' => $this->fm->tree($page)]);
+        return $this->run(function () use ($request, $slug) {
+            $maxMb = (int) config('filesystems.max_upload_mb', 50);
+            $request->validate([
+                'file'   => "required|file|max:{$maxMb}000",
+                'folder' => 'nullable|string',
+            ]);
+            $page = $this->ownedPage($request, $slug);
+            $this->fm->upload($page, $request->file('file'), $request->input('folder', ''));
+            return ['ok' => true, 'tree' => $this->fm->tree($page)];
+        });
     }
 
-    /** Delete a file or directory */
     public function delete(Request $request, string $slug): JsonResponse
     {
-        $page = $this->authorizedPage($request, $slug);
-        $data = $request->validate([
-            'path' => ['required', 'string'],
-        ]);
-
-        $this->fm->delete($page, $data['path']);
-        return response()->json(['ok' => true, 'tree' => $this->fm->tree($page)]);
+        return $this->run(function () use ($request, $slug) {
+            $data = $request->validate(['path' => 'required|string']);
+            $page = $this->ownedPage($request, $slug);
+            $this->fm->delete($page, $data['path']);
+            return ['ok' => true, 'tree' => $this->fm->tree($page)];
+        });
     }
 
-    /** Create a folder */
     public function createFolder(Request $request, string $slug): JsonResponse
     {
-        $page = $this->authorizedPage($request, $slug);
-        $data = $request->validate([
-            'path' => ['required', 'string'],
-        ]);
-
-        $this->fm->createFolder($page, $data['path']);
-        return response()->json(['ok' => true, 'tree' => $this->fm->tree($page)]);
+        return $this->run(function () use ($request, $slug) {
+            $data = $request->validate(['path' => 'required|string']);
+            $page = $this->ownedPage($request, $slug);
+            $this->fm->createFolder($page, $data['path']);
+            return ['ok' => true, 'tree' => $this->fm->tree($page)];
+        });
     }
 
-    /** Rename a file or folder */
     public function rename(Request $request, string $slug): JsonResponse
     {
-        $page = $this->authorizedPage($request, $slug);
-        $data = $request->validate([
-            'from' => ['required', 'string'],
-            'to'   => ['required', 'string'],
-        ]);
-
-        $this->fm->rename($page, $data['from'], $data['to']);
-        return response()->json(['ok' => true, 'tree' => $this->fm->tree($page)]);
+        return $this->run(function () use ($request, $slug) {
+            $data = $request->validate(['from' => 'required|string', 'to' => 'required|string']);
+            $page = $this->ownedPage($request, $slug);
+            $this->fm->rename($page, $data['from'], $data['to']);
+            return ['ok' => true, 'tree' => $this->fm->tree($page)];
+        });
     }
 
-    // ── Shared ────────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private function authorizedPage(Request $request, string $slug): Page
+    private function ownedPage(Request $request, string $slug): Page
     {
         return $request->user()->pages()->where('slug', $slug)->firstOrFail();
+    }
+
+    private function run(callable $fn): JsonResponse
+    {
+        try {
+            $result = $fn();
+            return response()->json($result);
+        } catch (RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
     }
 }

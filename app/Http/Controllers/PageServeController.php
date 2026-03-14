@@ -7,115 +7,116 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PageServeController extends Controller
 {
     /**
-     * Serve a static file from a page's storage root.
-     *
-     * Works for both subdomain access ({slug}.statichtmlsites.mtex.dev)
-     * and path-based access (statichtmlsites.mtex.dev/{slug}/...).
+     * Serve a static file from the pages disk.
+     * Called by both subdomain and path-based routes.
      */
-    public function serve(Request $request, string $slug, string $path = ''): Response|BinaryFileResponse|StreamedResponse
+    public function serve(Request $request, string $slug, string $path = ''): Response|BinaryFileResponse
     {
         $page = Page::where('slug', $slug)->firstOrFail();
 
-        // Authorization: private pages require auth
         if (! $page->is_public && ! auth()->check()) {
             abort(403, 'This page is private.');
         }
 
-        // Normalise path and resolve default document
-        $filePath = $this->resolvePath($slug, $path);
+        // Resolve the disk path and guard against traversal
+        $diskPath = $this->resolveDiskPath($slug, $path);
+        $this->guardTraversal($slug, $diskPath);
 
-        if (! Storage::exists($filePath)) {
+        $disk = Storage::disk('pages');
+
+        if (! $disk->exists($diskPath)) {
             abort(404, 'File not found.');
         }
 
-        // Security: prevent path traversal
-        $this->guardTraversal($slug, $filePath);
-
-        $absolutePath = Storage::path($filePath);
-        $mime = $this->detectMime($filePath);
-        $ext  = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $ext  = strtolower(pathinfo($diskPath, PATHINFO_EXTENSION));
+        $mime = $this->detectMime($ext);
 
         // Inject <base> tag into HTML responses
         if ($ext === 'html') {
-            $html = Storage::get($filePath);
-            $html = $this->injectBase($html, $page, $request, $slug);
-
+            $html = $disk->get($diskPath);
+            $html = $this->injectBase($html, $page, $request);
             return response($html, 200, ['Content-Type' => 'text/html; charset=utf-8']);
         }
 
-        // Stream binary / text files as-is
-        return response()->file($absolutePath, ['Content-Type' => $mime]);
+        return response()->file($disk->path($diskPath), ['Content-Type' => $mime]);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private function resolvePath(string $slug, string $path): string
+    /**
+     * Resolve a path within the page's slug directory on the pages disk.
+     * Handles directory index resolution.
+     */
+    private function resolveDiskPath(string $slug, string $path): string
     {
         $path = ltrim($path, '/');
 
         if ($path === '' || $path === '/') {
-            $path = 'index.html';
+            return "{$slug}/index.html";
         }
 
-        // If path is a directory (no extension), try index.html inside it
+        // No extension → try index.html inside that directory
         if (! pathinfo($path, PATHINFO_EXTENSION)) {
-            $candidate = rtrim($path, '/') . '/index.html';
-            $diskPath  = "pages/{$slug}/{$candidate}";
-            if (Storage::exists($diskPath)) {
-                return $diskPath;
+            $candidate = "{$slug}/" . rtrim($path, '/') . '/index.html';
+            if (Storage::disk('pages')->exists($candidate)) {
+                return $candidate;
             }
         }
 
-        return "pages/{$slug}/{$path}";
+        return "{$slug}/{$path}";
     }
 
-    private function guardTraversal(string $slug, string $filePath): void
+    /**
+     * Prevent path traversal by checking the real path stays inside the slug dir.
+     */
+    private function guardTraversal(string $slug, string $diskPath): void
     {
-        $root = realpath(Storage::path("pages/{$slug}"));
-        $real = realpath(Storage::path($filePath));
+        $disk     = Storage::disk('pages');
+        $root     = realpath($disk->path($slug));
+        $realFile = realpath($disk->path($diskPath));
 
-        if ($root && $real && ! str_starts_with($real, $root)) {
+        // realpath returns false for non-existent files – only check when both resolve
+        if ($root && $realFile && ! str_starts_with($realFile, $root)) {
             abort(403, 'Path traversal detected.');
         }
     }
 
-    private function injectBase(string $html, Page $page, Request $request, string $slug): string
+    /**
+     * Inject <base href="..."> as the first child of <head>.
+     * Detects subdomain vs path-based access automatically.
+     */
+    private function injectBase(string $html, Page $page, Request $request): string
     {
-        // Detect subdomain access
-        $host      = $request->getHost();
+        $host       = $request->getHost();
         $baseDomain = config('app.base_domain', 'statichtmlsites.mtex.dev');
         $isSubdomain = str_ends_with($host, ".{$baseDomain}");
 
-        $baseUrl = $isSubdomain
-            ? $page->subdomainUrl()
-            : $page->pathUrl();
-
+        $baseUrl = $isSubdomain ? $page->subdomainUrl() : $page->pathUrl();
         $baseTag = "<base href=\"{$baseUrl}\">\n";
 
-        // Inject as first child of <head>
         if (preg_match('/<head([^>]*)>/i', $html)) {
             return preg_replace('/<head([^>]*)>/i', "<head$1>\n{$baseTag}", $html, 1);
         }
 
-        // No <head> – prepend at top
         return $baseTag . $html;
     }
 
-    private function detectMime(string $path): string
+    private function detectMime(string $ext): string
     {
-        $map = [
+        return [
             'html'  => 'text/html',
             'css'   => 'text/css',
             'js'    => 'application/javascript',
+            'mjs'   => 'application/javascript',
             'json'  => 'application/json',
             'xml'   => 'application/xml',
             'svg'   => 'image/svg+xml',
             'txt'   => 'text/plain',
+            'md'    => 'text/plain',
             'png'   => 'image/png',
             'jpg'   => 'image/jpeg',
             'jpeg'  => 'image/jpeg',
@@ -130,9 +131,6 @@ class PageServeController extends Controller
             'pdf'   => 'application/pdf',
             'woff'  => 'font/woff',
             'woff2' => 'font/woff2',
-        ];
-
-        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        return $map[$ext] ?? 'application/octet-stream';
+        ][$ext] ?? 'application/octet-stream';
     }
 }

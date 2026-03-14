@@ -8,49 +8,51 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 
+/**
+ * All file operations use Storage::disk('pages').
+ * Paths passed in/out are always relative to the page root:
+ *   e.g.  "index.html"  or  "assets/logo.png"
+ */
 class FileManagerService
 {
-    // Editable in the code editor
     private const EDITABLE_EXT = ['html', 'css', 'js', 'json', 'txt', 'xml', 'svg', 'md'];
 
-    // Allowed uploads
-    private const BINARY_EXT = [
+    private const ALLOWED_EXT  = [
+        'html', 'css', 'js', 'json', 'txt', 'xml', 'svg', 'md',
         'mp4', 'mp3', 'wav', 'ogg', 'png', 'jpg', 'jpeg', 'gif',
         'webp', 'webm', 'pdf', 'ico', 'woff', 'woff2',
     ];
 
-    // ── Tree ─────────────────────────────────────────────────────────────────
-
-    /**
-     * Return the file tree as a nested array suitable for JSON.
-     */
-    public function tree(Page $page): array
+    private function disk(): \Illuminate\Contracts\Filesystem\Filesystem
     {
-        $root = $page->diskPath();
-        return $this->buildTree($root, $root);
+        return Storage::disk('pages');
     }
 
-    private function buildTree(string $directory, string $root): array
+    // ── Tree ─────────────────────────────────────────────────────────────────
+
+    public function tree(Page $page): array
+    {
+        return $this->buildTree($page->slug, $page->slug);
+    }
+
+    private function buildTree(string $dir, string $root): array
     {
         $items = [];
 
-        $dirs  = Storage::directories($directory);
-        $files = Storage::files($directory);
-
-        foreach ($dirs as $dir) {
-            $name     = basename($dir);
-            $relative = $this->relative($dir, $root);
+        foreach ($this->disk()->directories($dir) as $d) {
+            $name     = basename($d);
+            $relative = $this->relative($d, $root);
             $items[]  = [
                 'type'     => 'directory',
                 'name'     => $name,
                 'path'     => $relative,
-                'children' => $this->buildTree($dir, $root),
+                'children' => $this->buildTree($d, $root),
             ];
         }
 
-        foreach ($files as $file) {
-            $name     = basename($file);
-            $relative = $this->relative($file, $root);
+        foreach ($this->disk()->files($dir) as $f) {
+            $name     = basename($f);
+            $relative = $this->relative($f, $root);
             $ext      = strtolower(pathinfo($name, PATHINFO_EXTENSION));
             $items[]  = [
                 'type'     => 'file',
@@ -58,12 +60,11 @@ class FileManagerService
                 'path'     => $relative,
                 'editable' => in_array($ext, self::EDITABLE_EXT, true),
                 'ext'      => $ext,
-                'size'     => Storage::size($file),
+                'size'     => $this->disk()->size($f),
             ];
         }
 
-        // Directories first, then files, both alphabetically
-        usort($items, fn($a, $b) =>
+        usort($items, fn ($a, $b) =>
             [$a['type'] === 'file' ? 1 : 0, $a['name']]
             <=>
             [$b['type'] === 'file' ? 1 : 0, $b['name']]
@@ -72,101 +73,100 @@ class FileManagerService
         return $items;
     }
 
-    // ── Read / Write ─────────────────────────────────────────────────────────
+    // ── Read / Write ──────────────────────────────────────────────────────────
 
     public function read(Page $page, string $relative): string
     {
-        $path = $this->resolve($page, $relative);
-        $this->guard($page, $path);
+        $path = $page->storagePath($relative);
+        $this->guard($page, $relative);
 
-        if (! Storage::exists($path)) {
+        if (! $this->disk()->exists($path)) {
             throw new RuntimeException("File not found: {$relative}");
         }
 
-        return Storage::get($path);
+        return $this->disk()->get($path);
     }
 
     public function save(Page $page, string $relative, string $content): void
     {
-        $path = $this->resolve($page, $relative);
-        $this->guard($page, $path);
-        Storage::put($path, $content);
+        $this->guard($page, $relative);
+        $this->disk()->put($page->storagePath($relative), $content);
     }
 
     public function createFile(Page $page, string $relative): void
     {
         $relative = $this->sanitizePath($relative);
-        $path     = $this->resolve($page, $relative);
-        $this->guard($page, $path);
+        $path     = $page->storagePath($relative);
+        $this->guard($page, $relative);
 
-        if (Storage::exists($path)) {
+        if ($this->disk()->exists($path)) {
             throw new RuntimeException("File already exists: {$relative}");
         }
 
-        Storage::put($path, '');
+        $this->disk()->put($path, '');
     }
 
-    // ── Upload ───────────────────────────────────────────────────────────────
+    // ── Upload ────────────────────────────────────────────────────────────────
 
     public function upload(Page $page, UploadedFile $file, string $folder = ''): void
     {
         $name = $this->sanitizeName($file->getClientOriginalName());
         $ext  = strtolower($file->getClientOriginalExtension());
 
-        $allowed = array_merge(self::EDITABLE_EXT, self::BINARY_EXT);
-        if (! in_array($ext, $allowed, true)) {
+        if (! in_array($ext, self::ALLOWED_EXT, true)) {
             throw new RuntimeException("File type .{$ext} is not allowed.");
         }
 
         $folder  = $folder ? $this->sanitizePath($folder) : '';
         $diskDir = $folder
-            ? $page->diskPath($folder)
-            : $page->diskPath();
+            ? $page->storagePath($folder)
+            : $page->slug;
 
-        $file->storeAs($diskDir, $name);
+        $this->disk()->putFileAs($diskDir, $file, $name);
     }
 
-    // ── Delete ───────────────────────────────────────────────────────────────
+    // ── Delete ────────────────────────────────────────────────────────────────
 
     public function delete(Page $page, string $relative): void
     {
-        $path = $this->resolve($page, $relative);
-        $this->guard($page, $path);
+        $path = $page->storagePath($relative);
+        $this->guard($page, $relative);
 
-        if (Storage::directoryExists($path)) {
-            Storage::deleteDirectory($path);
-        } elseif (Storage::exists($path)) {
-            Storage::delete($path);
+        if ($this->disk()->directoryExists($path)) {
+            $this->disk()->deleteDirectory($path);
+        } elseif ($this->disk()->exists($path)) {
+            $this->disk()->delete($path);
         } else {
             throw new RuntimeException("Path not found: {$relative}");
         }
     }
 
-    // ── Folder ───────────────────────────────────────────────────────────────
+    // ── Folder ────────────────────────────────────────────────────────────────
 
     public function createFolder(Page $page, string $relative): void
     {
         $relative = $this->sanitizePath($relative);
-        $path     = $this->resolve($page, $relative);
-        $this->guard($page, $path);
-        Storage::makeDirectory($path);
+        $this->guard($page, $relative);
+        $this->disk()->makeDirectory($page->storagePath($relative));
     }
 
-    // ── Rename ───────────────────────────────────────────────────────────────
+    // ── Rename ────────────────────────────────────────────────────────────────
 
     public function rename(Page $page, string $from, string $to): void
     {
-        $fromPath = $this->resolve($page, $this->sanitizePath($from));
-        $toPath   = $this->resolve($page, $this->sanitizePath($to));
+        $from = $this->sanitizePath($from);
+        $to   = $this->sanitizePath($to);
 
-        $this->guard($page, $fromPath);
-        $this->guard($page, $toPath);
+        $this->guard($page, $from);
+        $this->guard($page, $to);
 
-        if (Storage::directoryExists($fromPath)) {
-            // Laravel doesn't have a move-directory helper; use the filesystem
+        $fromPath = $page->storagePath($from);
+        $toPath   = $page->storagePath($to);
+
+        if ($this->disk()->directoryExists($fromPath)) {
             $this->moveDirectory($fromPath, $toPath);
-        } elseif (Storage::exists($fromPath)) {
-            Storage::move($fromPath, $toPath);
+        } elseif ($this->disk()->exists($fromPath)) {
+            $this->disk()->move($fromPath, $toPath);
         } else {
             throw new RuntimeException("Path not found: {$from}");
         }
@@ -174,45 +174,37 @@ class FileManagerService
 
     private function moveDirectory(string $from, string $to): void
     {
-        Storage::makeDirectory($to);
+        $this->disk()->makeDirectory($to);
 
-        foreach (Storage::allFiles($from) as $file) {
+        foreach ($this->disk()->allFiles($from) as $file) {
             $relative = Str::after($file, $from . '/');
-            Storage::move($file, $to . '/' . $relative);
+            $this->disk()->move($file, $to . '/' . $relative);
         }
 
-        Storage::deleteDirectory($from);
+        $this->disk()->deleteDirectory($from);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    private function resolve(Page $page, string $relative): string
-    {
-        return $page->diskPath(ltrim($relative, '/'));
-    }
-
-    private function relative(string $full, string $root): string
-    {
-        return ltrim(Str::after($full, $root), '/');
-    }
+    // ── Security ──────────────────────────────────────────────────────────────
 
     /**
-     * Prevent path traversal attacks.
+     * Prevent path traversal. 'relative' must not escape the page slug directory.
      */
-    private function guard(Page $page, string $diskPath): void
+    private function guard(Page $page, string $relative): void
     {
-        $root = realpath(Storage::path($page->diskPath()));
-        $real = realpath(Storage::path($diskPath))
-              ?: Storage::path($diskPath); // file may not exist yet
-
-        if ($root && ! str_starts_with($real, $root)) {
+        if (str_contains($relative, '..') || str_starts_with($relative, '/')) {
             throw new RuntimeException('Path traversal detected.');
         }
     }
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private function relative(string $full, string $root): string
+    {
+        return ltrim(Str::after($full, $root . '/'), '/');
+    }
+
     private function sanitizeName(string $name): string
     {
-        // Keep extension, slugify the stem
         $ext  = pathinfo($name, PATHINFO_EXTENSION);
         $stem = pathinfo($name, PATHINFO_FILENAME);
         $safe = preg_replace('/[^a-zA-Z0-9\-_]/', '-', $stem);
@@ -221,9 +213,8 @@ class FileManagerService
 
     private function sanitizePath(string $path): string
     {
-        // Explode on slashes, sanitize each segment, rejoin
         $segments = array_filter(explode('/', str_replace('\\', '/', $path)));
-        $safe     = array_map(fn($s) => preg_replace('/[^a-zA-Z0-9\-_.]/', '-', $s), $segments);
+        $safe     = array_map(fn ($s) => preg_replace('/[^a-zA-Z0-9\-_.]/', '-', $s), $segments);
         return implode('/', $safe);
     }
 }

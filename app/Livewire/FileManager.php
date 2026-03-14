@@ -5,7 +5,6 @@ namespace App\Livewire;
 use App\Models\Page;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -14,7 +13,7 @@ class FileManager extends Component
 {
     use WithFileUploads;
 
-    // ─── State ────────────────────────────────────────────────────────────────
+    // ─── Public state ─────────────────────────────────────────────────────────
 
     public Page   $page;
     public string $activeFile    = '';
@@ -22,19 +21,19 @@ class FileManager extends Component
     public bool   $isDirty       = false;
     public string $newFileName   = '';
     public string $newFolderName = '';
-    public string $currentDir    = '';   // relative to page root
+    public string $currentDir    = '';   // relative inside the page root
     public ?string $renameTarget = null;
-    public string $renameTo      = '';
-    public $upload                = null; // Livewire temp upload
+    public string  $renameTo     = '';
+    public mixed   $upload       = null;
 
     // Settings panel
-    public string $pageName      = '';
-    public string $pageSlug      = '';
-    public bool   $pageIsPublic  = false;
-    public bool   $showSettings  = false;
+    public string $pageName     = '';
+    public string $pageSlug     = '';
+    public bool   $pageIsPublic = false;
+    public bool   $showSettings = false;
 
-    // Notification
-    public string $flash         = '';
+    // Status bar
+    public string $flash = '';
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -49,46 +48,52 @@ class FileManager extends Component
         $this->pageSlug     = $this->page->slug;
         $this->pageIsPublic = $this->page->is_public;
 
-        // Auto-open index.html if it exists
-        $indexPath = 'index.html';
-        if (Storage::disk('pages')->exists($this->page->storagePath($indexPath))) {
-            $this->openFile($indexPath);
+        // Auto-open index.html
+        if ($this->disk()->exists($this->page->storagePath('index.html'))) {
+            $this->openFile('index.html');
         }
     }
 
-    // ─── Computed ─────────────────────────────────────────────────────────────
+    // ─── Computed properties ──────────────────────────────────────────────────
 
     #[Computed]
     public function fileTree(): array
     {
-        $disk   = Storage::disk('pages');
-        $root   = $this->page->storagePath($this->currentDir);
+        $dir    = $this->page->storagePath($this->currentDir ?: '');
         $prefix = $this->page->storagePath() . '/';
 
+        return $this->buildTree($dir, $prefix);
+    }
+
+    private function buildTree(string $dir, string $prefix): array
+    {
         $entries = [];
 
-        // Directories
-        foreach ($disk->directories($root) as $dir) {
+        foreach ($this->disk()->directories($dir) as $d) {
             $entries[] = [
-                'type' => 'dir',
-                'name' => basename($dir),
-                'path' => ltrim(str_replace($prefix, '', $dir), '/'),
+                'type'     => 'dir',
+                'name'     => basename($d),
+                'path'     => $this->relative($d, $prefix),
+                'children' => $this->buildTree($d, $prefix),
             ];
         }
 
-        // Files
-        foreach ($disk->files($root) as $file) {
-            $rel = ltrim(str_replace($prefix, '', $file), '/');
+        foreach ($this->disk()->files($dir) as $f) {
+            $rel       = $this->relative($f, $prefix);
             $entries[] = [
                 'type'    => 'file',
-                'name'    => basename($file),
+                'name'    => basename($f),
                 'path'    => $rel,
                 'active'  => $rel === $this->activeFile,
-                'isIndex' => basename($file) === 'index.html',
+                'isIndex' => basename($f) === 'index.html',
             ];
         }
 
-        usort($entries, fn ($a, $b) => [$a['type'] === 'file' ? 1 : 0, $a['name']] <=> [$b['type'] === 'file' ? 1 : 0, $b['name']]);
+        usort($entries, fn ($a, $b) =>
+            [$a['type'] === 'file' ? 1 : 0, $a['name']]
+            <=>
+            [$b['type'] === 'file' ? 1 : 0, $b['name']]
+        );
 
         return $entries;
     }
@@ -101,9 +106,7 @@ class FileManager extends Component
             'css'         => 'css',
             'js'          => 'javascript',
             'json'        => 'json',
-            'xml'         => 'xml',
-            'svg'         => 'xml',
-            'txt'         => 'text',
+            'xml', 'svg'  => 'xml',
             default       => 'text',
         };
     }
@@ -111,52 +114,57 @@ class FileManager extends Component
     #[Computed]
     public function isEditable(): bool
     {
-        $editable = ['html', 'htm', 'css', 'js', 'json', 'txt', 'xml', 'svg'];
-        return in_array(strtolower(pathinfo($this->activeFile, PATHINFO_EXTENSION)), $editable);
+        return in_array(
+            strtolower(pathinfo($this->activeFile, PATHINFO_EXTENSION)),
+            ['html', 'htm', 'css', 'js', 'json', 'txt', 'xml', 'svg', 'md'],
+            true
+        );
     }
 
     #[Computed]
     public function isPreviewable(): bool
     {
-        $media = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mp3', 'wav', 'ogg', 'pdf'];
-        return in_array(strtolower(pathinfo($this->activeFile, PATHINFO_EXTENSION)), $media);
+        return in_array(
+            strtolower(pathinfo($this->activeFile, PATHINFO_EXTENSION)),
+            ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mp3', 'wav', 'ogg', 'pdf'],
+            true
+        );
     }
 
     #[Computed]
     public function previewUrl(): string
     {
-        return $this->page->subdomainUrl() . $this->activeFile;
+        return $this->page->subdomainUrl($this->activeFile);
     }
 
     // ─── File operations ──────────────────────────────────────────────────────
 
     public function openFile(string $path): void
     {
-        $this->ensureSafe($path);
-        $disk = Storage::disk('pages');
+        $this->guardPath($path);
         $full = $this->page->storagePath($path);
 
-        if (! $disk->exists($full)) {
+        if (! $this->disk()->exists($full)) {
             $this->flash = "File not found: {$path}";
             return;
         }
 
         $this->activeFile  = $path;
-        $this->fileContent = $disk->get($full);
+        $this->fileContent = $this->disk()->get($full) ?? '';
         $this->isDirty     = false;
 
-        $this->dispatch('load-editor', content: $this->fileContent, language: $this->editorLanguage);
+        $this->dispatch('load-editor',
+            content: $this->fileContent,
+            language: $this->editorLanguage
+        );
     }
 
     public function saveFile(string $content): void
     {
         if ($this->activeFile === '') return;
 
-        $this->ensureSafe($this->activeFile);
-        Storage::disk('pages')->put(
-            $this->page->storagePath($this->activeFile),
-            $content
-        );
+        $this->guardPath($this->activeFile);
+        $this->disk()->put($this->page->storagePath($this->activeFile), $content);
 
         $this->fileContent = $content;
         $this->isDirty     = false;
@@ -166,20 +174,17 @@ class FileManager extends Component
     public function createFile(): void
     {
         $name = $this->sanitiseName($this->newFileName);
-        if ($name === '') {
-            $this->flash = 'File name cannot be empty.';
-            return;
-        }
+        if ($name === '') { $this->flash = 'File name cannot be empty.'; return; }
 
-        $relative = $this->currentDir ? "{$this->currentDir}/{$name}" : $name;
+        $relative = $this->buildRelative($name);
         $full     = $this->page->storagePath($relative);
 
-        if (Storage::disk('pages')->exists($full)) {
+        if ($this->disk()->exists($full)) {
             $this->flash = 'A file with that name already exists.';
             return;
         }
 
-        Storage::disk('pages')->put($full, '');
+        $this->disk()->put($full, '');
         $this->newFileName = '';
         $this->openFile($relative);
         unset($this->fileTree);
@@ -188,13 +193,10 @@ class FileManager extends Component
     public function createFolder(): void
     {
         $name = $this->sanitiseName($this->newFolderName);
-        if ($name === '') {
-            $this->flash = 'Folder name cannot be empty.';
-            return;
-        }
+        if ($name === '') { $this->flash = 'Folder name cannot be empty.'; return; }
 
-        $relative = $this->currentDir ? "{$this->currentDir}/{$name}" : $name;
-        Storage::disk('pages')->makeDirectory($this->page->storagePath($relative));
+        $relative = $this->buildRelative($name);
+        $this->disk()->makeDirectory($this->page->storagePath($relative));
 
         $this->newFolderName = '';
         $this->flash         = "Folder '{$name}' created.";
@@ -203,8 +205,14 @@ class FileManager extends Component
 
     public function deleteFile(string $path): void
     {
-        $this->ensureSafe($path);
-        Storage::disk('pages')->delete($this->page->storagePath($path));
+        $this->guardPath($path);
+        $full = $this->page->storagePath($path);
+
+        if ($this->disk()->directoryExists($full)) {
+            $this->disk()->deleteDirectory($full);
+        } else {
+            $this->disk()->delete($full);
+        }
 
         if ($this->activeFile === $path) {
             $this->activeFile  = '';
@@ -225,14 +233,14 @@ class FileManager extends Component
     {
         if ($this->renameTarget === null) return;
 
-        $this->ensureSafe($this->renameTarget);
+        $this->guardPath($this->renameTarget);
         $newName = $this->sanitiseName($this->renameTo);
         if ($newName === '') return;
 
         $dir     = dirname($this->renameTarget);
         $newPath = ($dir === '.' ? '' : $dir . '/') . $newName;
 
-        Storage::disk('pages')->move(
+        $this->disk()->move(
             $this->page->storagePath($this->renameTarget),
             $this->page->storagePath($newPath)
         );
@@ -254,7 +262,8 @@ class FileManager extends Component
 
     public function goUp(): void
     {
-        $this->currentDir = dirname($this->currentDir) === '.' ? '' : dirname($this->currentDir);
+        $parent           = dirname($this->currentDir);
+        $this->currentDir = ($parent === '.' || $parent === '') ? '' : $parent;
         unset($this->fileTree);
     }
 
@@ -262,21 +271,19 @@ class FileManager extends Component
 
     public function uploadFile(): void
     {
+        $maxKb = (int) config('filesystems.max_upload_mb', 50) * 1024;
+
         $this->validate([
-            'upload' => 'required|file|max:' . (config('app.max_upload_mb', 50) * 1024),
+            'upload' => "required|file|max:{$maxKb}",
         ]);
 
-        $originalName = $this->sanitiseName($this->upload->getClientOriginalName());
-        $relative     = $this->currentDir ? "{$this->currentDir}/{$originalName}" : $originalName;
+        $name     = $this->sanitiseName($this->upload->getClientOriginalName());
+        $storeDir = $this->page->storagePath($this->currentDir ?: '');
 
-        Storage::disk('pages')->putFileAs(
-            $this->page->storagePath($this->currentDir ?: ''),
-            $this->upload,
-            $originalName
-        );
+        $this->disk()->putFileAs($storeDir, $this->upload, $name);
 
         $this->upload = null;
-        $this->flash  = "Uploaded {$originalName}.";
+        $this->flash  = "Uploaded {$name}.";
         unset($this->fileTree);
     }
 
@@ -284,22 +291,16 @@ class FileManager extends Component
 
     public function saveSettings(): void
     {
-        $data = $this->validate([
+        $this->validate([
             'pageName'     => 'required|string|max:255',
-            'pageSlug'     => "required|string|max:100|regex:/^[a-z0-9\-]+$/|unique:pages,slug,{$this->page->id}",
+            'pageSlug'     => "required|string|max:100|regex:/^[a-z0-9\\-]+$/|unique:pages,slug,{$this->page->id}",
             'pageIsPublic' => 'boolean',
         ]);
 
-        $oldSlug = $this->page->slug;
-        $newSlug = $this->pageSlug;
-
-        if ($oldSlug !== $newSlug) {
-            Storage::disk('pages')->move($oldSlug, $newSlug);
-        }
-
+        // The Page model's `updating` event handles directory rename automatically.
         $this->page->update([
             'name'      => $this->pageName,
-            'slug'      => $newSlug,
+            'slug'      => $this->pageSlug,
             'is_public' => $this->pageIsPublic,
         ]);
 
@@ -307,23 +308,37 @@ class FileManager extends Component
         $this->showSettings = false;
         $this->flash        = 'Settings saved.';
 
-        if ($oldSlug !== $newSlug) {
-            $this->redirect(route('pages.manager', $newSlug));
+        if ($this->page->wasChanged('slug')) {
+            $this->redirect(route('pages.manager', $this->page->slug), navigate: true);
         }
     }
 
-    // ─── Security ─────────────────────────────────────────────────────────────
+    // ─── Security / helpers ───────────────────────────────────────────────────
 
-    private function ensureSafe(string $path): void
+    private function disk(): \Illuminate\Contracts\Filesystem\Filesystem
+    {
+        return Storage::disk('pages');
+    }
+
+    private function guardPath(string $path): void
     {
         if (str_contains($path, '..') || str_starts_with($path, '/')) {
             abort(400, 'Invalid path.');
         }
     }
 
+    private function buildRelative(string $name): string
+    {
+        return $this->currentDir ? "{$this->currentDir}/{$name}" : $name;
+    }
+
+    private function relative(string $fullPath, string $prefix): string
+    {
+        return ltrim(str_replace($prefix, '', $fullPath), '/');
+    }
+
     private function sanitiseName(string $name): string
     {
-        // Allow alphanumeric, dash, underscore, dot
         return preg_replace('/[^a-zA-Z0-9\-_.]/', '-', trim($name));
     }
 
@@ -331,7 +346,6 @@ class FileManager extends Component
 
     public function render()
     {
-        return view('livewire.file-manager')
-            ->layout('layouts.app', ['title' => "Manager — {$this->page->name}"]);
+        return view('livewire.file-manager');
     }
 }
