@@ -43,12 +43,11 @@
         @endif
     </div>
 
-    @if ($isDirty)
-        <span class="flex items-center gap-1 text-[11px] text-amber-400 shrink-0">
-            <span class="size-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-            Unsaved
-        </span>
-    @endif
+    <span x-show="dirty"
+          class="flex items-center gap-1 text-[11px] text-amber-400 shrink-0">
+        <span class="size-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+        Unsaved
+    </span>
 
     <a href="{{ route('pages.preview', $page->slug) }}" target="_blank"
        class="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md
@@ -171,15 +170,19 @@
             {{ $activeFile ?: 'No file open' }}
         </span>
         <div class="flex items-center gap-2 shrink-0">
-            @if ($isDirty)
-                <button x-on:click="save()"
-                        class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md
-                               bg-indigo-600 hover:bg-indigo-500 text-white transition">
-                    <flux:icon.check class="size-3" />
-                    Save <kbd class="opacity-50 text-[10px]">⌘S</kbd>
-                </button>
-            @elseif ($activeFile && $this->isEditable)
-                <span class="flex items-center gap-1 text-[11px] text-emerald-500">
+            {{-- Save button — shown when dirty (Alpine), hidden otherwise --}}
+            <button x-show="dirty"
+                    x-on:click="save()"
+                    class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md
+                           bg-indigo-600 hover:bg-indigo-500 text-white transition"
+                    style="display:none">
+                <flux:icon.check class="size-3" />
+                Save <kbd class="opacity-50 text-[10px]">⌘S</kbd>
+            </button>
+            {{-- Saved indicator — shown when file is open, editable, and not dirty --}}
+            @if ($activeFile && $this->isEditable)
+                <span x-show="!dirty"
+                      class="flex items-center gap-1 text-[11px] text-emerald-500">
                     <flux:icon.check-circle class="size-3" /> Saved
                 </span>
             @endif
@@ -188,7 +191,9 @@
 
     {{-- Content --}}
     @if ($this->isEditable && $activeFile)
-        <div id="cm-host" class="flex-1 overflow-hidden min-h-0"></div>
+        {{-- wire:ignore prevents Livewire from ever touching this subtree.
+             Without it, any Livewire re-render destroys the CodeMirror DOM. --}}
+        <div wire:ignore id="cm-host" class="flex-1 overflow-hidden min-h-0"></div>
 
     @elseif ($this->isPreviewable && $activeFile)
         @php $ext = strtolower(pathinfo($activeFile, PATHINFO_EXTENSION)); @endphp

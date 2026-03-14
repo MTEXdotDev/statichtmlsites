@@ -104,7 +104,9 @@ function createEditor(content, lang) {
                 EditorView.updateListener.of(update => {
                     if (update.selectionSet) publishCursor(update.state);
                     if (!update.docChanged) return;
-                    getWire()?.set('isDirty', true);
+                    // Dispatch to Alpine only — never call $wire.set() here.
+                    // $wire.set() triggers a full Livewire re-render which destroys #cm-host.
+                    window.dispatchEvent(new CustomEvent('cm-dirty'));
                     clearTimeout(saveDebounce);
                     saveDebounce = setTimeout(triggerSave, 1200);
                 }),
@@ -134,6 +136,9 @@ document.addEventListener('alpine:init', () => {
 
         // Drag-and-drop state
         dragOver: false,
+
+        // Dirty state — tracked purely in Alpine, never via $wire.set()
+        dirty: false,
 
         // ── Modal helpers ────────────────────────────────────────────────
         openModal(name)  { this.modal = name; },
@@ -168,11 +173,20 @@ document.addEventListener('alpine:init', () => {
 
         // ── Init ─────────────────────────────────────────────────────────
         init() {
-            // CodeMirror events
+            // CodeMirror cursor position
             window.addEventListener('cm-cursor', e => { this.cursor = e.detail; });
+
+            // Editor content changed — mark dirty in Alpine only (never via $wire.set)
+            window.addEventListener('cm-dirty', () => { this.dirty = true; });
+
+            // File opened — reset dirty and create editor
             window.addEventListener('load-editor', e => {
+                this.dirty = false;
                 createEditor(e.detail.content, e.detail.language);
             });
+
+            // Livewire saved successfully — reset dirty
+            window.addEventListener('file-saved', () => { this.dirty = false; });
 
             // Livewire → Alpine modal control
             window.addEventListener('open-modal',  e => this.openModal(e.detail?.name));
