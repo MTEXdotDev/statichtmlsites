@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "63028766c4e0986010161b1f1958f00d",
+    "content-hash": "b33d07e938b3692a14088c8f0a47317d",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -1159,6 +1159,67 @@
             "time": "2025-08-22T14:27:06+00:00"
         },
         {
+            "name": "laravel/breeze",
+            "version": "v2.4.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/laravel/breeze.git",
+                "reference": "28cefeaf6af20177ddf5cc7b93e87e4ad79d533f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/laravel/breeze/zipball/28cefeaf6af20177ddf5cc7b93e87e4ad79d533f",
+                "reference": "28cefeaf6af20177ddf5cc7b93e87e4ad79d533f",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/console": "^11.0|^12.0|^13.0",
+                "illuminate/filesystem": "^11.0|^12.0|^13.0",
+                "illuminate/support": "^11.0|^12.0|^13.0",
+                "illuminate/validation": "^11.0|^12.0|^13.0",
+                "php": "^8.2.0",
+                "symfony/console": "^7.0|^8.0"
+            },
+            "require-dev": {
+                "laravel/framework": "^11.0|^12.0|^13.0",
+                "orchestra/testbench-core": "^9.0|^10.0|^11.0",
+                "phpstan/phpstan": "^2.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Laravel\\Breeze\\BreezeServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Laravel\\Breeze\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Taylor Otwell",
+                    "email": "taylor@laravel.com"
+                }
+            ],
+            "description": "Minimal Laravel authentication scaffolding with Blade and Tailwind.",
+            "keywords": [
+                "auth",
+                "laravel"
+            ],
+            "support": {
+                "issues": "https://github.com/laravel/breeze/issues",
+                "source": "https://github.com/laravel/breeze"
+            },
+            "time": "2026-03-10T19:59:01+00:00"
+        },
+        {
             "name": "laravel/fortify",
             "version": "v1.36.1",
             "source": {
@@ -2190,16 +2251,16 @@
         },
         {
             "name": "livewire/blaze",
-            "version": "v1.0.7",
+            "version": "v1.0.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/livewire/blaze.git",
-                "reference": "20cb545a8f70a3325f17c97254bb2532a99c0731"
+                "reference": "b7d8976e540f792aaf52c4955c3576fcc7eb5c0e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/livewire/blaze/zipball/20cb545a8f70a3325f17c97254bb2532a99c0731",
-                "reference": "20cb545a8f70a3325f17c97254bb2532a99c0731",
+                "url": "https://api.github.com/repos/livewire/blaze/zipball/b7d8976e540f792aaf52c4955c3576fcc7eb5c0e",
+                "reference": "b7d8976e540f792aaf52c4955c3576fcc7eb5c0e",
                 "shasum": ""
             },
             "require": {
@@ -2242,9 +2303,9 @@
             "description": "A tool for optimizing Blade component performance by folding them into parent templates",
             "support": {
                 "issues": "https://github.com/livewire/blaze/issues",
-                "source": "https://github.com/livewire/blaze/tree/v1.0.7"
+                "source": "https://github.com/livewire/blaze/tree/v1.0.8"
             },
-            "time": "2026-03-12T14:25:42+00:00"
+            "time": "2026-03-14T15:06:24+00:00"
         },
         {
             "name": "livewire/flux",

@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\ServiceProvider;
+
 return [
 
     /*
@@ -86,6 +89,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Base domain
+    | Used for subdomain routing and URL helpers.
+    |--------------------------------------------------------------------------
+    */
+    'base_domain' => env('APP_BASE_DOMAIN', 'statichtmlsites.mtex.dev'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Max upload size (MB)
+    |--------------------------------------------------------------------------
+    */
+    'max_upload_mb' => (int) env('MAX_UPLOAD_MB', 50),
+
+    /*
+    |--------------------------------------------------------------------------
     | Encryption Key
     |--------------------------------------------------------------------------
     |
@@ -123,4 +141,12 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+
+    'providers' => ServiceProvider::defaultProviders()->merge([
+        App\Providers\AppServiceProvider::class,
+    ])->toArray(),
+
+    'aliases' => Facade::defaultAliases()->merge([
+        // 'Example' => App\Facades\Example::class,
+    ])->toArray(),
 ];
