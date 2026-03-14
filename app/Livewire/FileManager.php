@@ -26,11 +26,15 @@ class FileManager extends Component
     public string  $renameTo      = '';
     public mixed   $upload        = null;
 
+    // Delete modal state
+    public string $deleteTarget     = '';
+    public string $deleteTargetName = '';
+    public string $deleteTargetType = 'file';
+
     // Settings panel
     public string $pageName     = '';
     public string $pageSlug     = '';
     public bool   $pageIsPublic = false;
-    public bool   $showSettings = false;
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -140,7 +144,7 @@ class FileManager extends Component
         $full = $this->page->storagePath($path);
 
         if (! $this->disk()->exists($full)) {
-            $this->showFlash("File not found: {$path}");
+            $this->showFlash("File not found: {$path}", 'error');
             return;
         }
 
@@ -171,7 +175,7 @@ class FileManager extends Component
         $name = $this->sanitiseName($this->newFileName);
 
         if ($name === '') {
-            $this->showFlash('File name cannot be empty.');
+            $this->showFlash('File name cannot be empty.', 'error');
             return;
         }
 
@@ -179,7 +183,7 @@ class FileManager extends Component
         $full     = $this->page->storagePath($relative);
 
         if ($this->disk()->exists($full)) {
-            $this->showFlash('A file with that name already exists.');
+            $this->showFlash('A file with that name already exists.', 'error');
             return;
         }
 
@@ -189,14 +193,31 @@ class FileManager extends Component
         unset($this->fileTree);
     }
 
+    /** Create file and close the modal. */
+    public function createFileAndClose(): void
+    {
+        $name = $this->sanitiseName($this->newFileName);
+        if ($name === '') { $this->showFlash('File name cannot be empty.', 'error'); return; }
+
+        $relative = $this->buildRelative($name);
+        $full     = $this->page->storagePath($relative);
+
+        if ($this->disk()->exists($full)) {
+            $this->showFlash('A file with that name already exists.', 'error');
+            return;
+        }
+
+        $this->disk()->put($full, '');
+        $this->newFileName = '';
+        $this->dispatch('flux:modal.close', name: 'new-file');
+        $this->openFile($relative);
+        unset($this->fileTree);
+    }
+
     public function createFolder(): void
     {
         $name = $this->sanitiseName($this->newFolderName);
-
-        if ($name === '') {
-            $this->showFlash('Folder name cannot be empty.');
-            return;
-        }
+        if ($name === '') { $this->showFlash('Folder name cannot be empty.', 'error'); return; }
 
         $relative = $this->buildRelative($name);
         $this->disk()->makeDirectory($this->page->storagePath($relative));
@@ -206,10 +227,37 @@ class FileManager extends Component
         unset($this->fileTree);
     }
 
-    public function deleteFile(string $path): void
+    /** Create folder and close the modal. */
+    public function createFolderAndClose(): void
+    {
+        $name = $this->sanitiseName($this->newFolderName);
+        if ($name === '') { $this->showFlash('Folder name cannot be empty.', 'error'); return; }
+
+        $relative = $this->buildRelative($name);
+        $this->disk()->makeDirectory($this->page->storagePath($relative));
+
+        $this->newFolderName = '';
+        $this->dispatch('flux:modal.close', name: 'new-folder');
+        $this->showFlash("Folder '{$name}' created.");
+        unset($this->fileTree);
+    }
+
+    /** Show delete confirmation modal. */
+    public function prepareDelete(string $path, string $type = 'file'): void
     {
         $this->guardPath($path);
-        $full = $this->page->storagePath($path);
+        $this->deleteTarget     = $path;
+        $this->deleteTargetName = basename($path);
+        $this->deleteTargetType = $type;
+        $this->dispatch('flux:modal.show', name: 'delete-confirm');
+    }
+
+    /** Execute the pending delete after modal confirmation. */
+    public function executeDelete(): void
+    {
+        if ($this->deleteTarget === '') return;
+
+        $full = $this->page->storagePath($this->deleteTarget);
 
         if ($this->disk()->directoryExists($full)) {
             $this->disk()->deleteDirectory($full);
@@ -217,18 +265,23 @@ class FileManager extends Component
             $this->disk()->delete($full);
         }
 
-        if ($this->activeFile === $path) {
+        if ($this->activeFile === $this->deleteTarget) {
             $this->activeFile  = '';
             $this->fileContent = '';
             $this->isDirty     = false;
         }
 
-        $this->showFlash("Deleted {$path}.");
+        $this->showFlash("Deleted {$this->deleteTargetName}.");
+        $this->deleteTarget     = '';
+        $this->deleteTargetName = '';
+        $this->dispatch('flux:modal.close', name: 'delete-confirm');
         unset($this->fileTree);
     }
 
-    public function startRename(string $path): void
+    /** Prepare rename (shows inline form in sidebar). */
+    public function prepareRename(string $path): void
     {
+        $this->guardPath($path);
         $this->renameTarget = $path;
         $this->renameTo     = basename($path);
     }
@@ -255,6 +308,7 @@ class FileManager extends Component
 
         $this->renameTarget = null;
         $this->renameTo     = '';
+        $this->showFlash("Renamed to {$newName}.");
         unset($this->fileTree);
     }
 
@@ -284,6 +338,7 @@ class FileManager extends Component
 
         $this->upload = null;
         $this->showFlash("Uploaded {$name}.");
+        $this->dispatch('flux:modal.close', name: 'upload');
         unset($this->fileTree);
     }
 
@@ -304,7 +359,7 @@ class FileManager extends Component
         ]);
 
         $this->page->refresh();
-        $this->showSettings = false;
+        $this->dispatch('flux:modal.close', name: 'settings');
         $this->showFlash('Settings saved.');
 
         if ($this->page->wasChanged('slug')) {
@@ -320,14 +375,9 @@ class FileManager extends Component
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    /**
-     * Set flash message AND dispatch a browser event for Alpine to catch.
-     * Using dispatch() avoids the @livewire Blade directive collision.
-     */
-    private function showFlash(string $message): void
+    private function showFlash(string $message, string $type = 'success'): void
     {
-        $this->flash = $message;
-        $this->dispatch('show-flash', message: $message);
+        $this->dispatch('show-flash', message: $message, type: $type);
     }
 
     private function disk(): \Illuminate\Contracts\Filesystem\Filesystem
