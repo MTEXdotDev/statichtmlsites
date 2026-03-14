@@ -66,4 +66,3 @@ Route::get('/{slug}/{path?}', [PageServeController::class, 'serve'])
     ->name('page.path');
 
 require __DIR__ . '/auth.php';
-require __DIR__.'/settings.php';
