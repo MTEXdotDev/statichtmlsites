@@ -47,6 +47,20 @@ return [
             'report' => false,
         ],
 
+        /*
+        |----------------------------------------------------------------------
+        | Pages disk
+        | All user page files live here, scoped per slug:
+        |   storage/app/pages/{slug}/
+        |----------------------------------------------------------------------
+        */
+        'pages' => [
+            'driver'     => 'local',
+            'root'       => storage_path('app/pages'),
+            'visibility' => 'public',
+            'throw'      => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
