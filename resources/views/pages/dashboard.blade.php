@@ -1,70 +1,71 @@
-<x-app-layout>
-    <x-slot name="title">Dashboard — {{ config('app.name') }}</x-slot>
+<x-app-layout title="Dashboard — {{ config('app.name') }}">
 
     <div class="max-w-6xl mx-auto px-6 py-10">
 
         <div class="flex items-center justify-between mb-8">
-            <h1 class="text-2xl font-bold text-gray-900">Your Pages</h1>
-            <a href="{{ route('pages.create') }}"
-               class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition shadow-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
+            <flux:heading size="xl">Your Pages</flux:heading>
+            <flux:button href="{{ route('pages.create') }}" variant="primary" icon="plus">
                 New Page
-            </a>
+            </flux:button>
         </div>
 
         @if ($pages->isEmpty())
-            <div class="text-center py-28 text-gray-400">
+            <div class="text-center py-28">
                 <p class="text-5xl mb-4">📄</p>
-                <p class="text-lg font-medium">No pages yet.</p>
-                <a href="{{ route('pages.create') }}"
-                   class="mt-4 inline-block text-indigo-600 hover:underline text-sm">
+                <flux:heading size="lg" class="text-zinc-400">No pages yet.</flux:heading>
+                <flux:link href="{{ route('pages.create') }}" class="mt-3 inline-block">
                     Create your first page →
-                </a>
+                </flux:link>
             </div>
         @else
             <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($pages as $page)
-                    <article class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition p-5 flex flex-col">
-                        <div class="flex items-start justify-between mb-2">
+                    <div class="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200
+                                dark:border-zinc-700 shadow-xs hover:shadow-md transition p-5 flex flex-col">
+
+                        <div class="flex items-start justify-between mb-3">
                             <div class="min-w-0">
-                                <h2 class="font-semibold text-gray-900 truncate">{{ $page->name }}</h2>
-                                <code class="text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                <flux:heading size="sm" class="truncate">{{ $page->name }}</flux:heading>
+                                <code class="text-xs text-indigo-500 bg-indigo-50 dark:bg-indigo-950
+                                             dark:text-indigo-300 px-1.5 py-0.5 rounded mt-1 inline-block">
                                     {{ $page->slug }}
                                 </code>
                             </div>
-                            <span class="ml-2 shrink-0 text-xs px-2 py-0.5 rounded-full font-medium
-                                {{ $page->is_public ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
+                            <flux:badge
+                                variant="{{ $page->is_public ? 'lime' : 'zinc' }}"
+                                size="sm"
+                                class="ml-2 shrink-0">
                                 {{ $page->is_public ? 'Public' : 'Private' }}
-                            </span>
+                            </flux:badge>
                         </div>
 
-                        <p class="text-xs text-gray-400 mt-auto mb-4 pt-3 border-t border-gray-100">
+                        <p class="text-xs text-zinc-400 mt-auto mb-4 pt-3
+                                  border-t border-zinc-100 dark:border-zinc-700">
                             Updated {{ $page->updated_at->diffForHumans() }}
                         </p>
 
-                        <div class="flex gap-2 text-sm">
-                            <a href="{{ route('pages.manager', $page->slug) }}"
-                               class="flex-1 text-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition font-medium">
+                        <div class="flex gap-2">
+                            <flux:button href="{{ route('pages.manager', $page->slug) }}"
+                                         variant="filled" size="sm" class="flex-1">
                                 Edit
-                            </a>
-                            <a href="{{ $page->subdomainUrl() }}" target="_blank" rel="noopener"
-                               class="flex-1 text-center bg-gray-50 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition font-medium">
-                                Preview ↗
-                            </a>
+                            </flux:button>
+                            <flux:button href="{{ $page->subdomainUrl() }}"
+                                         target="_blank" rel="noopener"
+                                         variant="ghost" size="sm" class="flex-1"
+                                         icon-trailing="arrow-top-right-on-square">
+                                Preview
+                            </flux:button>
                             <form method="POST" action="{{ route('pages.destroy', $page->slug) }}"
                                   onsubmit="return confirm('Delete \'{{ addslashes($page->name) }}\'?\nThis cannot be undone.')">
                                 @csrf @method('DELETE')
-                                <button type="submit"
-                                        class="bg-red-50 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-100 transition font-medium">
-                                    ✕
-                                </button>
+                                <flux:button type="submit" variant="danger" size="sm" icon="trash" />
                             </form>
                         </div>
-                    </article>
+                    </div>
                 @endforeach
             </div>
         @endif
+
     </div>
+
 </x-app-layout>

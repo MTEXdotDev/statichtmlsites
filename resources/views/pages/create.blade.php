@@ -1,52 +1,49 @@
-<x-app-layout>
-    <x-slot name="title">New Page — StaticHTMLSites</x-slot>
+<x-app-layout title="New Page — {{ config('app.name') }}">
 
-    <div class="max-w-lg mx-auto">
-        <h1 class="text-2xl font-bold mb-6">Create New Page</h1>
+    <div class="max-w-lg mx-auto px-6 py-10">
 
-        <form method="POST" action="{{ route('pages.store') }}"
-              class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-5">
+        <flux:heading size="xl" class="mb-6">Create New Page</flux:heading>
+
+        <form method="POST" action="{{ route('pages.store') }}" class="space-y-5">
             @csrf
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1" for="name">Page Name</label>
-                <input id="name" name="name" type="text" required autofocus
-                       value="{{ old('name') }}"
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                       placeholder="My Awesome Site">
+            <flux:field>
+                <flux:label>Page Name</flux:label>
+                <flux:input type="text" name="name" value="{{ old('name') }}"
+                            required autofocus placeholder="My Awesome Site" />
                 @error('name')
-                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                    <flux:error>{{ $message }}</flux:error>
                 @enderror
-            </div>
+            </flux:field>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1" for="slug">
-                    Slug <span class="text-gray-400 font-normal">(optional — auto-generated if blank)</span>
-                </label>
-                <div class="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-400">
-                    <span class="bg-gray-50 border-r border-gray-300 px-3 py-2 text-sm text-gray-400 select-none">
-                        statichtmlsites.mtex.dev/
+            <flux:field>
+                <flux:label>
+                    Slug
+                    <flux:badge variant="zinc" size="sm" class="ml-1">optional</flux:badge>
+                </flux:label>
+                <div class="flex items-center">
+                    <span class="text-sm text-zinc-400 dark:text-zinc-500 mr-1 shrink-0">
+                        {{ config('app.base_domain') }}/
                     </span>
-                    <input id="slug" name="slug" type="text"
-                           value="{{ old('slug') }}"
-                           class="flex-1 px-3 py-2 text-sm focus:outline-none"
-                           placeholder="my-awesome-site">
+                    <flux:input type="text" name="slug" value="{{ old('slug') }}"
+                                placeholder="my-awesome-site" class="flex-1" />
                 </div>
+                <flux:description>Leave blank to auto-generate from the page name.</flux:description>
                 @error('slug')
-                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                    <flux:error>{{ $message }}</flux:error>
                 @enderror
-            </div>
+            </flux:field>
 
             <div class="flex gap-3 pt-2">
-                <button type="submit"
-                        class="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
-                    Create Page →
-                </button>
-                <a href="{{ route('dashboard') }}"
-                   class="px-5 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition">
+                <flux:button type="submit" variant="primary">
+                    Create Page
+                </flux:button>
+                <flux:button href="{{ route('dashboard') }}" variant="ghost">
                     Cancel
-                </a>
+                </flux:button>
             </div>
         </form>
+
     </div>
+
 </x-app-layout>

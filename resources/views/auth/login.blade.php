@@ -1,59 +1,51 @@
-<x-auth-layout>
-    <x-slot name="title">Log In</x-slot>
-    <x-slot name="footer">
-        No account? <a href="{{ route('register') }}" class="text-indigo-400 hover:underline">Register</a>
-    </x-slot>
+<x-auth-layout title="Log In">
 
-    <h1 class="text-xl font-bold text-white mb-6">Welcome back</h1>
+    <flux:heading size="lg" class="text-center mb-6">Welcome back</flux:heading>
 
     @if (session('status'))
-        <div class="mb-4 text-sm text-green-400">{{ session('status') }}</div>
+        <flux:callout variant="success" icon="check-circle" class="mb-4">
+            {{ session('status') }}
+        </flux:callout>
     @endif
 
-    <form method="POST" action="{{ route('login') }}" class="space-y-4">
+    <form method="POST" action="{{ route('login') }}" class="space-y-5">
         @csrf
 
-        <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1" for="email">Email</label>
-            <input id="email" type="email" name="email" value="{{ old('email') }}"
-                   required autofocus autocomplete="username"
-                   class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm
-                          focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                          placeholder-gray-600 @error('email') border-red-500 @enderror">
+        <flux:field>
+            <flux:label>Email address</flux:label>
+            <flux:input type="email" name="email" value="{{ old('email') }}"
+                        required autofocus autocomplete="username" />
             @error('email')
-                <p class="text-red-400 text-xs mt-1">{{ $message }}</p>
+                <flux:error>{{ $message }}</flux:error>
             @enderror
-        </div>
+        </flux:field>
 
-        <div>
-            <div class="flex items-center justify-between mb-1">
-                <label class="text-xs font-medium text-gray-400" for="password">Password</label>
+        <flux:field>
+            <div class="flex items-center justify-between">
+                <flux:label>Password</flux:label>
                 @if (Route::has('password.request'))
-                    <a href="{{ route('password.request') }}" class="text-xs text-indigo-400 hover:underline">
+                    <flux:link href="{{ route('password.request') }}" size="sm">
                         Forgot password?
-                    </a>
+                    </flux:link>
                 @endif
             </div>
-            <input id="password" type="password" name="password"
-                   required autocomplete="current-password"
-                   class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm
-                          focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-                          @error('password') border-red-500 @enderror">
+            <flux:input type="password" name="password"
+                        required autocomplete="current-password" />
             @error('password')
-                <p class="text-red-400 text-xs mt-1">{{ $message }}</p>
+                <flux:error>{{ $message }}</flux:error>
             @enderror
-        </div>
+        </flux:field>
 
-        <div class="flex items-center gap-2">
-            <input id="remember" type="checkbox" name="remember"
-                   class="rounded border-gray-600 bg-gray-800 text-indigo-500 focus:ring-indigo-500">
-            <label for="remember" class="text-sm text-gray-400">Remember me</label>
-        </div>
+        <flux:checkbox name="remember" label="Remember me" />
 
-        <button type="submit"
-                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold
-                       py-2.5 rounded-lg transition text-sm mt-2">
-            Log In
-        </button>
+        <flux:button type="submit" variant="primary" class="w-full">
+            Log in
+        </flux:button>
     </form>
+
+    <p class="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+        No account?
+        <flux:link href="{{ route('register') }}">Register</flux:link>
+    </p>
+
 </x-auth-layout>

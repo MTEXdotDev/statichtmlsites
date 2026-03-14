@@ -1,51 +1,39 @@
-<x-auth-layout>
-    <x-slot name="title">Reset Password</x-slot>
+<x-auth-layout title="Reset Password">
 
-    <h1 class="text-xl font-bold text-white mb-6">Choose a new password</h1>
+    <flux:heading size="lg" class="text-center mb-6">Choose a new password</flux:heading>
 
-    <form method="POST" action="{{ route('password.store') }}" class="space-y-4">
+    <form method="POST" action="{{ route('password.store') }}" class="space-y-5">
         @csrf
         <input type="hidden" name="token" value="{{ $request->route('token') }}">
 
-        <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1" for="email">Email</label>
-            <input id="email" type="email" name="email"
-                   value="{{ old('email', $request->email) }}"
-                   required autofocus autocomplete="username"
-                   class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm
-                          focus:outline-none focus:ring-2 focus:ring-indigo-500
-                          @error('email') border-red-500 @enderror">
+        <flux:field>
+            <flux:label>Email address</flux:label>
+            <flux:input type="email" name="email"
+                        value="{{ old('email', $request->email) }}"
+                        required autofocus autocomplete="username" />
             @error('email')
-                <p class="text-red-400 text-xs mt-1">{{ $message }}</p>
+                <flux:error>{{ $message }}</flux:error>
             @enderror
-        </div>
+        </flux:field>
 
-        <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1" for="password">New Password</label>
-            <input id="password" type="password" name="password"
-                   required autocomplete="new-password"
-                   class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm
-                          focus:outline-none focus:ring-2 focus:ring-indigo-500
-                          @error('password') border-red-500 @enderror">
+        <flux:field>
+            <flux:label>New password</flux:label>
+            <flux:input type="password" name="password"
+                        required autocomplete="new-password" />
             @error('password')
-                <p class="text-red-400 text-xs mt-1">{{ $message }}</p>
+                <flux:error>{{ $message }}</flux:error>
             @enderror
-        </div>
+        </flux:field>
 
-        <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1" for="password_confirmation">
-                Confirm Password
-            </label>
-            <input id="password_confirmation" type="password" name="password_confirmation"
-                   required autocomplete="new-password"
-                   class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm
-                          focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        </div>
+        <flux:field>
+            <flux:label>Confirm new password</flux:label>
+            <flux:input type="password" name="password_confirmation"
+                        required autocomplete="new-password" />
+        </flux:field>
 
-        <button type="submit"
-                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold
-                       py-2.5 rounded-lg transition text-sm">
-            Reset Password
-        </button>
+        <flux:button type="submit" variant="primary" class="w-full">
+            Reset password
+        </flux:button>
     </form>
+
 </x-auth-layout>

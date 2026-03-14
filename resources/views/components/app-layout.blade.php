@@ -1,7 +1,7 @@
 @props(['title' => config('app.name')])
 
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-gray-50">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,54 +9,62 @@
     <title>{{ $title }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+    @fluxStyles
     @stack('head')
 </head>
-<body class="h-full font-sans antialiased text-gray-900" x-data>
+<body class="min-h-full bg-white dark:bg-zinc-900 font-sans antialiased" x-data>
 
-<nav class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-    <a href="{{ route('dashboard') }}" class="font-bold text-lg tracking-tight text-indigo-600">
-        {{ config('app.name') }}
-    </a>
-    <div class="flex items-center gap-5 text-sm">
-        <a href="{{ route('dashboard') }}" class="text-gray-500 hover:text-gray-900 transition">
-            Dashboard
-        </a>
-        <a href="{{ route('pages.create') }}"
-           class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition font-medium">
-            + New Page
-        </a>
-        <form method="POST" action="{{ route('logout') }}" class="inline">
+    <flux:header class="border-b border-zinc-200 dark:border-zinc-700">
+        <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+
+        <flux:brand href="{{ route('dashboard') }}" name="{{ config('app.name') }}" />
+
+        <flux:spacer />
+
+        <flux:navbar>
+            <flux:navbar.item href="{{ route('dashboard') }}"
+                              :current="request()->routeIs('dashboard')">
+                Dashboard
+            </flux:navbar.item>
+        </flux:navbar>
+
+        <flux:spacer />
+
+        <flux:button href="{{ route('pages.create') }}" variant="primary" size="sm" icon="plus">
+            New Page
+        </flux:button>
+
+        <form method="POST" action="{{ route('logout') }}" class="ml-2">
             @csrf
-            <button type="submit" class="text-gray-400 hover:text-gray-700 transition">
-                Logout
-            </button>
+            <flux:button type="submit" variant="ghost" size="sm">Logout</flux:button>
         </form>
-    </div>
-</nav>
+    </flux:header>
 
-{{-- Flash messages --}}
-@if (session('success'))
-    <div x-data="{ show: true }" x-show="show" x-transition
-         x-init="setTimeout(() => show = false, 4000)"
-         class="bg-green-50 border-l-4 border-green-500 text-green-800 px-6 py-3 text-sm flex justify-between">
-        <span>{{ session('success') }}</span>
-        <button @click="show = false" class="text-green-500 hover:text-green-800 ml-4">✕</button>
-    </div>
-@endif
+    @if (session('success'))
+        <div x-data="{ show: true }" x-show="show" x-transition
+             x-init="setTimeout(() => show = false, 4000)"
+             class="border-b border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800
+                    text-green-800 dark:text-green-300 px-6 py-3 text-sm flex justify-between">
+            <span>{{ session('success') }}</span>
+            <button x-on:click="show = false" class="opacity-60 hover:opacity-100">✕</button>
+        </div>
+    @endif
 
-@if ($errors->any())
-    <div class="bg-red-50 border-l-4 border-red-500 text-red-800 px-6 py-3 text-sm">
-        <ul class="list-disc list-inside space-y-0.5">
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-@endif
+    @if ($errors->any())
+        <div class="border-b border-red-200 bg-red-50 dark:bg-red-950
+                    text-red-700 dark:text-red-300 px-6 py-3 text-sm">
+            <ul class="list-disc list-inside space-y-0.5">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
-<main>{{ $slot }}</main>
+    <main>{{ $slot }}</main>
 
-@livewireScripts
-@stack('scripts')
+    @livewireScripts
+    @fluxScripts
+    @stack('scripts')
 </body>
 </html>

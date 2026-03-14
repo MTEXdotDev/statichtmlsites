@@ -1,30 +1,25 @@
-<x-auth-layout>
-    <x-slot name="title">Confirm Password</x-slot>
+<x-auth-layout title="Confirm Password">
 
-    <h1 class="text-xl font-bold text-white mb-2">Confirm your password</h1>
-    <p class="text-sm text-gray-400 mb-6">
-        This area requires you to confirm your password before continuing.
+    <flux:heading size="lg" class="text-center mb-2">Confirm your password</flux:heading>
+    <p class="text-center text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+        Please confirm your password before continuing.
     </p>
 
-    <form method="POST" action="{{ route('password.confirm') }}" class="space-y-4">
+    <form method="POST" action="{{ route('password.confirm') }}" class="space-y-5">
         @csrf
 
-        <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1" for="password">Password</label>
-            <input id="password" type="password" name="password"
-                   required autocomplete="current-password"
-                   class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm
-                          focus:outline-none focus:ring-2 focus:ring-indigo-500
-                          @error('password') border-red-500 @enderror">
+        <flux:field>
+            <flux:label>Password</flux:label>
+            <flux:input type="password" name="password"
+                        required autocomplete="current-password" />
             @error('password')
-                <p class="text-red-400 text-xs mt-1">{{ $message }}</p>
+                <flux:error>{{ $message }}</flux:error>
             @enderror
-        </div>
+        </flux:field>
 
-        <button type="submit"
-                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold
-                       py-2.5 rounded-lg transition text-sm">
+        <flux:button type="submit" variant="primary" class="w-full">
             Confirm
-        </button>
+        </flux:button>
     </form>
+
 </x-auth-layout>
