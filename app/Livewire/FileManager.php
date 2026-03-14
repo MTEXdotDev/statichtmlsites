@@ -15,25 +15,22 @@ class FileManager extends Component
 
     // ─── Public state ─────────────────────────────────────────────────────────
 
-    public Page   $page;
-    public string $activeFile    = '';
-    public string $fileContent   = '';
-    public bool   $isDirty       = false;
-    public string $newFileName   = '';
-    public string $newFolderName = '';
-    public string $currentDir    = '';   // relative inside the page root
-    public ?string $renameTarget = null;
-    public string  $renameTo     = '';
-    public mixed   $upload       = null;
+    public Page    $page;
+    public string  $activeFile    = '';
+    public string  $fileContent   = '';
+    public bool    $isDirty       = false;
+    public string  $newFileName   = '';
+    public string  $newFolderName = '';
+    public string  $currentDir    = '';
+    public ?string $renameTarget  = null;
+    public string  $renameTo      = '';
+    public mixed   $upload        = null;
 
     // Settings panel
     public string $pageName     = '';
     public string $pageSlug     = '';
     public bool   $pageIsPublic = false;
     public bool   $showSettings = false;
-
-    // Status bar
-    public string $flash = '';
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -48,20 +45,18 @@ class FileManager extends Component
         $this->pageSlug     = $this->page->slug;
         $this->pageIsPublic = $this->page->is_public;
 
-        // Auto-open index.html
         if ($this->disk()->exists($this->page->storagePath('index.html'))) {
             $this->openFile('index.html');
         }
     }
 
-    // ─── Computed properties ──────────────────────────────────────────────────
+    // ─── Computed ─────────────────────────────────────────────────────────────
 
     #[Computed]
     public function fileTree(): array
     {
         $dir    = $this->page->storagePath($this->currentDir ?: '');
         $prefix = $this->page->storagePath() . '/';
-
         return $this->buildTree($dir, $prefix);
     }
 
@@ -126,7 +121,7 @@ class FileManager extends Component
     {
         return in_array(
             strtolower(pathinfo($this->activeFile, PATHINFO_EXTENSION)),
-            ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mp3', 'wav', 'ogg', 'pdf'],
+            ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'mp4', 'webm', 'mp3', 'wav', 'ogg', 'pdf'],
             true
         );
     }
@@ -145,7 +140,7 @@ class FileManager extends Component
         $full = $this->page->storagePath($path);
 
         if (! $this->disk()->exists($full)) {
-            $this->flash = "File not found: {$path}";
+            $this->showFlash("File not found: {$path}");
             return;
         }
 
@@ -168,19 +163,23 @@ class FileManager extends Component
 
         $this->fileContent = $content;
         $this->isDirty     = false;
-        $this->flash       = 'Saved ✓';
+        $this->showFlash('Saved ✓');
     }
 
     public function createFile(): void
     {
         $name = $this->sanitiseName($this->newFileName);
-        if ($name === '') { $this->flash = 'File name cannot be empty.'; return; }
+
+        if ($name === '') {
+            $this->showFlash('File name cannot be empty.');
+            return;
+        }
 
         $relative = $this->buildRelative($name);
         $full     = $this->page->storagePath($relative);
 
         if ($this->disk()->exists($full)) {
-            $this->flash = 'A file with that name already exists.';
+            $this->showFlash('A file with that name already exists.');
             return;
         }
 
@@ -193,13 +192,17 @@ class FileManager extends Component
     public function createFolder(): void
     {
         $name = $this->sanitiseName($this->newFolderName);
-        if ($name === '') { $this->flash = 'Folder name cannot be empty.'; return; }
+
+        if ($name === '') {
+            $this->showFlash('Folder name cannot be empty.');
+            return;
+        }
 
         $relative = $this->buildRelative($name);
         $this->disk()->makeDirectory($this->page->storagePath($relative));
 
         $this->newFolderName = '';
-        $this->flash         = "Folder '{$name}' created.";
+        $this->showFlash("Folder '{$name}' created.");
         unset($this->fileTree);
     }
 
@@ -217,9 +220,10 @@ class FileManager extends Component
         if ($this->activeFile === $path) {
             $this->activeFile  = '';
             $this->fileContent = '';
+            $this->isDirty     = false;
         }
 
-        $this->flash = "Deleted {$path}.";
+        $this->showFlash("Deleted {$path}.");
         unset($this->fileTree);
     }
 
@@ -272,18 +276,14 @@ class FileManager extends Component
     public function uploadFile(): void
     {
         $maxKb = (int) config('filesystems.max_upload_mb', 50) * 1024;
-
-        $this->validate([
-            'upload' => "required|file|max:{$maxKb}",
-        ]);
+        $this->validate(['upload' => "required|file|max:{$maxKb}"]);
 
         $name     = $this->sanitiseName($this->upload->getClientOriginalName());
         $storeDir = $this->page->storagePath($this->currentDir ?: '');
-
         $this->disk()->putFileAs($storeDir, $this->upload, $name);
 
         $this->upload = null;
-        $this->flash  = "Uploaded {$name}.";
+        $this->showFlash("Uploaded {$name}.");
         unset($this->fileTree);
     }
 
@@ -297,7 +297,6 @@ class FileManager extends Component
             'pageIsPublic' => 'boolean',
         ]);
 
-        // The Page model's `updating` event handles directory rename automatically.
         $this->page->update([
             'name'      => $this->pageName,
             'slug'      => $this->pageSlug,
@@ -306,14 +305,30 @@ class FileManager extends Component
 
         $this->page->refresh();
         $this->showSettings = false;
-        $this->flash        = 'Settings saved.';
+        $this->showFlash('Settings saved.');
 
         if ($this->page->wasChanged('slug')) {
             $this->redirect(route('pages.manager', $this->page->slug), navigate: true);
         }
     }
 
-    // ─── Security / helpers ───────────────────────────────────────────────────
+    public function deletePage(): void
+    {
+        $this->page->delete();
+        $this->redirect(route('dashboard'), navigate: true);
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Set flash message AND dispatch a browser event for Alpine to catch.
+     * Using dispatch() avoids the @livewire Blade directive collision.
+     */
+    private function showFlash(string $message): void
+    {
+        $this->flash = $message;
+        $this->dispatch('show-flash', message: $message);
+    }
 
     private function disk(): \Illuminate\Contracts\Filesystem\Filesystem
     {
