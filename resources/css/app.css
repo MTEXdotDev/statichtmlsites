@@ -11,6 +11,8 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
                  'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* ── Zinc scale ───────────────────────────────────────────────────── */
     --color-zinc-50:  #fafafa;
     --color-zinc-100: #f5f5f5;
     --color-zinc-200: #e5e5e5;
@@ -22,16 +24,31 @@
     --color-zinc-800: #262626;
     --color-zinc-900: #171717;
     --color-zinc-950: #0a0a0a;
-    --color-accent:             var(--color-neutral-800);
-    --color-accent-content:     var(--color-neutral-800);
+
+    /* ── Brand color (indigo-based, customize here) ───────────────────── */
+    --color-brand-50:  #eef2ff;
+    --color-brand-100: #e0e7ff;
+    --color-brand-200: #c7d2fe;
+    --color-brand-300: #a5b4fc;
+    --color-brand-400: #818cf8;
+    --color-brand-500: #6366f1;
+    --color-brand-600: #4f46e5;
+    --color-brand-700: #4338ca;
+    --color-brand-800: #3730a3;
+    --color-brand-900: #312e81;
+    --color-brand-950: #1e1b4b;
+
+    /* ── Flux accent (maps to brand) ─────────────────────────────────── */
+    --color-accent:             var(--color-brand-500);
+    --color-accent-content:     var(--color-brand-500);
     --color-accent-foreground:  var(--color-white);
 }
 
 @layer theme {
     .dark {
-        --color-accent:             var(--color-white);
-        --color-accent-content:     var(--color-white);
-        --color-accent-foreground:  var(--color-neutral-800);
+        --color-accent:             var(--color-brand-400);
+        --color-accent-content:     var(--color-brand-400);
+        --color-accent-foreground:  var(--color-zinc-950);
     }
 }
 
@@ -43,8 +60,19 @@
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
     }
+
+    /* Smooth theme transition */
+    html {
+        color-scheme: light dark;
+    }
+
+    html.transitioning,
+    html.transitioning * {
+        transition: background-color 0.2s ease, color 0.15s ease, border-color 0.15s ease !important;
+    }
 }
 
+/* ── Flux field/label overrides ─────────────────────────────────────────── */
 [data-flux-field]:not(ui-radio, ui-checkbox) {
     @apply grid gap-2;
 }
@@ -59,7 +87,7 @@ select:focus[data-flux-control] {
     @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
 }
 
-/* ── CodeMirror 6 ─────────────────────────────────────────────────────────── */
+/* ── CodeMirror 6 ───────────────────────────────────────────────────────── */
 .cm-editor {
     height: 100%;
     font-size: 0.85rem;
@@ -67,5 +95,5 @@ select:focus[data-flux-control] {
 
 .cm-scroller {
     overflow: auto;
-    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, monospace;
 }

@@ -26,7 +26,7 @@
                         <div class="flex items-start justify-between mb-3">
                             <div class="min-w-0">
                                 <flux:heading size="sm" class="truncate">{{ $page->name }}</flux:heading>
-                                <code class="text-xs text-indigo-500 bg-indigo-50 dark:bg-indigo-950
+                                <code class="text-xs text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/40 dark:bg-indigo-950
                                              dark:text-indigo-300 px-1.5 py-0.5 rounded mt-1 inline-block">
                                     {{ $page->slug }}
                                 </code>

@@ -167,6 +167,7 @@ class FileManager extends Component
 
         $this->fileContent = $content;
         $this->isDirty     = false;
+        $this->dispatch('file-saved');   // Alpine resets dirty indicator
         $this->showFlash('Saved ✓');
     }
 
