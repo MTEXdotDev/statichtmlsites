@@ -7,7 +7,6 @@
     <title>{{ $page->name }} — File Manager</title>
     @vite(['resources/css/app.css', 'resources/js/file-manager.js'])
     @livewireStyles
-    @fluxStyles
     <style>
         /* Thin scrollbar for file tree */
         .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
@@ -22,6 +21,5 @@
     <livewire:file-manager :slug="$page->slug" />
 
     @livewireScripts
-    @fluxScripts
 </body>
 </html>

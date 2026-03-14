@@ -8,7 +8,6 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title }} — {{ config('app.name') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @fluxStyles
 </head>
 <body class="min-h-full bg-white dark:bg-zinc-900 font-sans antialiased">
 
@@ -26,6 +25,5 @@
         </div>
     </div>
 
-    @fluxScripts
 </body>
 </html>

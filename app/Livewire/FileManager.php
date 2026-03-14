@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Page;
+use Flux\Flux;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
@@ -209,7 +210,7 @@ class FileManager extends Component
 
         $this->disk()->put($full, '');
         $this->newFileName = '';
-        $this->dispatch('flux:modal.close', name: 'new-file');
+        Flux::modal('new-file')->close();
         $this->openFile($relative);
         unset($this->fileTree);
     }
@@ -237,7 +238,7 @@ class FileManager extends Component
         $this->disk()->makeDirectory($this->page->storagePath($relative));
 
         $this->newFolderName = '';
-        $this->dispatch('flux:modal.close', name: 'new-folder');
+        Flux::modal('new-folder')->close();
         $this->showFlash("Folder '{$name}' created.");
         unset($this->fileTree);
     }
@@ -249,7 +250,7 @@ class FileManager extends Component
         $this->deleteTarget     = $path;
         $this->deleteTargetName = basename($path);
         $this->deleteTargetType = $type;
-        $this->dispatch('flux:modal.show', name: 'delete-confirm');
+        Flux::modal('delete-confirm')->show();
     }
 
     /** Execute the pending delete after modal confirmation. */
@@ -274,7 +275,7 @@ class FileManager extends Component
         $this->showFlash("Deleted {$this->deleteTargetName}.");
         $this->deleteTarget     = '';
         $this->deleteTargetName = '';
-        $this->dispatch('flux:modal.close', name: 'delete-confirm');
+        Flux::modal('delete-confirm')->close();
         unset($this->fileTree);
     }
 
@@ -338,7 +339,7 @@ class FileManager extends Component
 
         $this->upload = null;
         $this->showFlash("Uploaded {$name}.");
-        $this->dispatch('flux:modal.close', name: 'upload');
+        Flux::modal('upload')->close();
         unset($this->fileTree);
     }
 
@@ -359,7 +360,7 @@ class FileManager extends Component
         ]);
 
         $this->page->refresh();
-        $this->dispatch('flux:modal.close', name: 'settings');
+        Flux::modal('settings')->close();
         $this->showFlash('Settings saved.');
 
         if ($this->page->wasChanged('slug')) {

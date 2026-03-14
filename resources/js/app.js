@@ -1,9 +1,7 @@
+/**
+ * app.js — global entry point loaded on every page.
+ *
+ * Alpine is provided by @fluxScripts (Livewire/Flux bundle).
+ * Do NOT import or start Alpine here.
+ */
 import './bootstrap';
-import Alpine from 'alpinejs';
-
-// Only boot Alpine on non-manager pages.
-// The file manager boots its own Alpine instance with registered components.
-if (!window.PAGE_SLUG) {
-    window.Alpine = Alpine;
-    Alpine.start();
-}

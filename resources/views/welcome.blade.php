@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ config('app.name') }} — Host your static pages instantly</title>
     @vite(['resources/css/app.css'])
-    @fluxStyles
 </head>
 <body class="min-h-full bg-zinc-950 text-white font-sans antialiased">
 
@@ -46,6 +45,5 @@
 
     </div>
 
-    @fluxScripts
 </body>
 </html>

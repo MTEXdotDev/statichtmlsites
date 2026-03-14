@@ -1,7 +1,11 @@
 /**
- * file-manager.js
- * Bundled via Vite — loaded only on the file manager page.
- * Provides: CodeMirror 6 editor, Alpine data components.
+ * file-manager.js  — loaded only on the file manager page.
+ *
+ * Alpine is provided by @fluxScripts (bundled with Livewire/Flux).
+ * We must NOT import or start our own Alpine — Flux registers its modal
+ * plugin on its own Alpine instance. We hook into it via alpine:init.
+ *
+ * CodeMirror 6 is tree-shaken and bundled here by Vite.
  */
 
 import { EditorState, Compartment }               from '@codemirror/state';
@@ -24,7 +28,6 @@ import { javascript }  from '@codemirror/lang-javascript';
 import { json }        from '@codemirror/lang-json';
 import { xml }         from '@codemirror/lang-xml';
 import { oneDark }     from '@codemirror/theme-one-dark';
-import Alpine          from 'alpinejs';
 
 // ── CodeMirror state ──────────────────────────────────────────────────────────
 
@@ -32,7 +35,6 @@ const langCompartment = new Compartment();
 let   editorView      = null;
 let   saveDebounce    = null;
 
-/** Line/col published to Alpine via custom event */
 function publishCursor(state) {
     const head = state.selection.main.head;
     const line = state.doc.lineAt(head);
@@ -45,7 +47,7 @@ function langExt(lang) {
     switch (lang) {
         case 'html':       return html({ matchClosingTags: true, autoCloseTags: true });
         case 'css':        return css();
-        case 'javascript': return javascript({ jsx: false });
+        case 'javascript': return javascript();
         case 'json':       return json();
         case 'xml':        return xml();
         default:           return [];
@@ -73,22 +75,19 @@ export function createEditor(content, lang) {
         state: EditorState.create({
             doc: content,
             extensions: [
-                // Appearance
                 oneDark,
                 EditorView.theme({
-                    '&':             { height: '100%' },
-                    '.cm-scroller':  { overflow: 'auto', fontFamily: "ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, monospace" },
-                    '.cm-content':   { padding: '8px 0' },
-                    '.cm-gutters':   { background: 'transparent', border: 'none' },
+                    '&':            { height: '100%' },
+                    '.cm-scroller': { overflow: 'auto', fontFamily: "ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, monospace" },
+                    '.cm-content':  { padding: '8px 0' },
+                    '.cm-gutters':  { background: 'transparent', border: 'none' },
                 }),
-                // Gutter & highlights
                 lineNumbers(),
                 highlightActiveLineGutter(),
                 highlightActiveLine(),
                 highlightSpecialChars(),
                 drawSelection(),
                 dropCursor(),
-                // Editing
                 history(),
                 indentOnInput(),
                 bracketMatching(),
@@ -96,16 +95,13 @@ export function createEditor(content, lang) {
                 rectangularSelection(),
                 crosshairCursor(),
                 syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-                // Language
                 langCompartment.of(langExt(lang)),
-                // Keybindings
                 keymap.of([
                     { key: 'Mod-s', run() { triggerSave(); return true; } },
                     ...defaultKeymap,
                     ...historyKeymap,
                     indentWithTab,
                 ]),
-                // Listeners
                 EditorView.updateListener.of(update => {
                     if (update.selectionSet) publishCursor(update.state);
                     if (!update.docChanged) return;
@@ -121,69 +117,48 @@ export function createEditor(content, lang) {
     publishCursor(editorView.state);
 }
 
-// ── Alpine components ─────────────────────────────────────────────────────────
+// ── Alpine component — registered on Flux/Livewire's Alpine instance ──────────
+//
+// We use alpine:init so our data component is registered BEFORE Alpine
+// processes the DOM, but AFTER Flux has registered its own plugins
+// (including x-flux-modal and $dispatch helpers).
 
-/**
- * fileManager() — root Alpine data for the manager page.
- */
-window.fileManager = () => ({
-    // Open folder paths (array for Alpine reactivity)
-    openDirs: [],
+document.addEventListener('alpine:init', () => {
+    // Safety guard: window.Alpine is set by @fluxScripts before this fires.
+    if (!window.Alpine) return;
 
-    // Context menu state
-    ctx: { show: false, x: 0, y: 0, item: null },
+    window.Alpine.data('fileManager', () => ({
+        openDirs: [],
+        ctx: { show: false, x: 0, y: 0, item: null },
+        cursor: { line: 1, col: 1 },
 
-    // Cursor info (updated by CodeMirror)
-    cursor: { line: 1, col: 1 },
+        isOpen(path)   { return this.openDirs.includes(path); },
+        toggleDir(path) {
+            this.openDirs = this.isOpen(path)
+                ? this.openDirs.filter(p => p !== path)
+                : [...this.openDirs, path];
+        },
 
-    isOpen(path) {
-        return this.openDirs.includes(path);
-    },
+        openContext(e, item) {
+            this.ctx = { show: true, x: e.clientX, y: e.clientY, item };
+        },
+        closeContext() {
+            this.ctx = { show: false, x: 0, y: 0, item: null };
+        },
 
-    toggleDir(path) {
-        if (this.isOpen(path)) {
-            this.openDirs = this.openDirs.filter(p => p !== path);
-        } else {
-            this.openDirs = [...this.openDirs, path];
-        }
-    },
+        init() {
+            window.addEventListener('cm-cursor', e => { this.cursor = e.detail; });
 
-    openAllDirs(paths) {
-        this.openDirs = [...new Set([...this.openDirs, ...paths])];
-    },
+            window.addEventListener('load-editor', e => {
+                createEditor(e.detail.content, e.detail.language);
+            });
 
-    openContext(e, item) {
-        this.ctx = { show: true, x: e.clientX, y: e.clientY, item };
-    },
+            window.addEventListener('click', () => this.closeContext());
+            window.addEventListener('keydown', e => {
+                if (e.key === 'Escape') this.closeContext();
+            });
+        },
 
-    closeContext() {
-        this.ctx = { show: false, x: 0, y: 0, item: null };
-    },
-
-    init() {
-        // Listen for CodeMirror cursor events
-        window.addEventListener('cm-cursor', e => {
-            this.cursor = e.detail;
-        });
-
-        // Listen for Livewire editor load event
-        window.addEventListener('load-editor', e => {
-            createEditor(e.detail.content, e.detail.language);
-        });
-
-        // Close context menu on outside click
-        window.addEventListener('click', () => this.closeContext());
-        window.addEventListener('keydown', e => {
-            if (e.key === 'Escape') this.closeContext();
-        });
-    },
-
-    save() {
-        triggerSave();
-    },
+        save() { triggerSave(); },
+    }));
 });
-
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
-
-window.Alpine = Alpine;
-Alpine.start();

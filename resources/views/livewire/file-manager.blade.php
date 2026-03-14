@@ -77,7 +77,7 @@
 
         {{-- Settings --}}
         <button
-            x-on:click="$dispatch('flux:modal.show', { name: 'settings' })"
+            x-on:click="$modal.show('settings')"
             class="flex items-center gap-1 text-zinc-400 hover:text-zinc-100 px-1.5 py-1.5
                    rounded-md hover:bg-white/8 transition">
             <flux:icon.cog-6-tooth class="size-4" />
@@ -99,19 +99,19 @@
                     Explorer
                 </span>
                 <button
-                    x-on:click="$dispatch('flux:modal.show', { name: 'new-file' })"
+                    x-on:click="$modal.show('new-file')"
                     class="p-1 rounded text-zinc-500 hover:text-zinc-100 hover:bg-white/8 transition"
                     title="New File">
                     <flux:icon.document-plus class="size-4" />
                 </button>
                 <button
-                    x-on:click="$dispatch('flux:modal.show', { name: 'new-folder' })"
+                    x-on:click="$modal.show('new-folder')"
                     class="p-1 rounded text-zinc-500 hover:text-zinc-100 hover:bg-white/8 transition"
                     title="New Folder">
                     <flux:icon.folder-plus class="size-4" />
                 </button>
                 <button
-                    x-on:click="$dispatch('flux:modal.show', { name: 'upload' })"
+                    x-on:click="$modal.show('upload')"
                     class="p-1 rounded text-zinc-500 hover:text-zinc-100 hover:bg-white/8 transition"
                     title="Upload Files">
                     <flux:icon.arrow-up-tray class="size-4" />
@@ -146,7 +146,7 @@
                         <flux:icon.document class="size-8 mb-2 opacity-30" />
                         <p class="text-xs">No files yet</p>
                         <button
-                            x-on:click="$dispatch('flux:modal.show', { name: 'new-file' })"
+                            x-on:click="$modal.show('new-file')"
                             class="text-xs text-indigo-400 hover:text-indigo-300 mt-2 transition">
                             Create index.html
                         </button>
@@ -274,7 +274,7 @@
                     <p class="text-base font-medium mb-1">No file open</p>
                     <p class="text-sm opacity-60">Select a file from the explorer to start editing</p>
                     <button
-                        x-on:click="$dispatch('flux:modal.show', { name: 'new-file' })"
+                        x-on:click="$modal.show('new-file')"
                         class="mt-4 flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition">
                         <flux:icon.plus class="size-4" />
                         Create a new file
@@ -331,13 +331,13 @@
             <template x-if="ctx.item?.type === 'dir'">
                 <div>
                     <button
-                        x-on:click="$dispatch('flux:modal.show', { name: 'new-file' }); closeContext()"
+                        x-on:click="$modal.show('new-file'); closeContext()"
                         class="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/8 text-zinc-300 hover:text-white transition">
                         <flux:icon.document-plus class="size-4 text-zinc-500" />
                         New File Here
                     </button>
                     <button
-                        x-on:click="$dispatch('flux:modal.show', { name: 'new-folder' }); closeContext()"
+                        x-on:click="$modal.show('new-folder'); closeContext()"
                         class="w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/8 text-zinc-300 hover:text-white transition">
                         <flux:icon.folder-plus class="size-4 text-zinc-500" />
                         New Folder Here
@@ -441,7 +441,7 @@
                     Create File
                 </flux:button>
                 <flux:button
-                    x-on:click="$dispatch('flux:modal.close', { name: 'new-file' })"
+                    x-on:click="$modal.close('new-file')"
                     variant="ghost">
                     Cancel
                 </flux:button>
@@ -476,7 +476,7 @@
                     Create Folder
                 </flux:button>
                 <flux:button
-                    x-on:click="$dispatch('flux:modal.close', { name: 'new-folder' })"
+                    x-on:click="$modal.close('new-folder')"
                     variant="ghost">
                     Cancel
                 </flux:button>
@@ -530,7 +530,7 @@
 
             <div class="mt-4 flex justify-end">
                 <flux:button
-                    x-on:click="$dispatch('flux:modal.close', { name: 'upload' })"
+                    x-on:click="$modal.close('upload')"
                     variant="ghost">
                     Done
                 </flux:button>
@@ -569,7 +569,7 @@
                     Delete
                 </flux:button>
                 <flux:button
-                    x-on:click="$dispatch('flux:modal.close', { name: 'delete-confirm' })"
+                    x-on:click="$modal.close('delete-confirm')"
                     variant="ghost"
                     class="flex-1">
                     Cancel
@@ -638,7 +638,7 @@
                     <span wire:loading wire:target="saveSettings">Saving…</span>
                 </flux:button>
                 <flux:button
-                    x-on:click="$dispatch('flux:modal.close', { name: 'settings' })"
+                    x-on:click="$modal.close('settings')"
                     variant="ghost">
                     Cancel
                 </flux:button>

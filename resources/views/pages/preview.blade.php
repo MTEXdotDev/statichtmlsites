@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Preview — {{ $page->name }}</title>
     @vite(['resources/css/app.css'])
-    @fluxStyles
     <style>
         [x-cloak] { display: none !important; }
         .device-frame { transition: width 0.3s cubic-bezier(.4,0,.2,1), height 0.3s cubic-bezier(.4,0,.2,1); }
@@ -133,6 +132,5 @@
         </div>
     </div>
 
-    @fluxScripts
 </body>
 </html>

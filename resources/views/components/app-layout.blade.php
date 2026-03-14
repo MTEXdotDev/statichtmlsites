@@ -9,10 +9,9 @@
     <title>{{ $title }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
-    @fluxStyles
     @stack('head')
 </head>
-<body class="min-h-full bg-white dark:bg-zinc-900 font-sans antialiased" x-data>
+<body class="min-h-full bg-white dark:bg-zinc-900 font-sans antialiased">
 
     <flux:header class="border-b border-zinc-200 dark:border-zinc-700">
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
@@ -41,12 +40,14 @@
     </flux:header>
 
     @if (session('success'))
-        <div x-data="{ show: true }" x-show="show" x-transition
+        <div x-data="{ show: true }"
+             x-show="show"
+             x-transition
              x-init="setTimeout(() => show = false, 4000)"
              class="border-b border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800
                     text-green-800 dark:text-green-300 px-6 py-3 text-sm flex justify-between">
             <span>{{ session('success') }}</span>
-            <button x-on:click="show = false" class="opacity-60 hover:opacity-100">✕</button>
+            <button x-on:click="show = false" class="opacity-60 hover:opacity-100 ml-4">✕</button>
         </div>
     @endif
 
@@ -64,7 +65,6 @@
     <main>{{ $slot }}</main>
 
     @livewireScripts
-    @fluxScripts
     @stack('scripts')
 </body>
 </html>
