@@ -7,23 +7,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title }} — {{ config('app.name') }}</title>
+    <script>
+        (function () {
+            const t = localStorage.getItem('theme');
+            if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="min-h-full bg-white dark:bg-zinc-900 font-sans antialiased">
+<body class="min-h-full bg-zinc-50 dark:bg-zinc-950 font-sans antialiased
+             flex items-center justify-center px-4 py-12 transition-colors">
 
-    <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
-        <div class="sm:mx-auto sm:w-full sm:max-w-sm">
-            <a href="{{ route('home') }}" class="flex justify-center">
-                <flux:heading size="xl" class="text-accent font-bold tracking-tight">
-                    {{ config('app.name') }}
-                </flux:heading>
+    <div class="w-full max-w-sm">
+        <div class="mb-8 text-center flex flex-col items-center gap-3">
+            <a href="{{ route('home') }}"
+               class="text-2xl font-bold text-brand-600 dark:text-brand-400 tracking-tight">
+                {{ config('app.name') }}
             </a>
+            <x-theme-toggle />
         </div>
 
-        <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
+        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800
+                    rounded-2xl p-8 shadow-sm dark:shadow-none">
             {{ $slot }}
         </div>
     </div>
 
+    @livewireScripts
 </body>
 </html>

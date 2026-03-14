@@ -57,6 +57,8 @@ Route::domain('{slug}.statichtmlsites.mtex.dev')
             ->name('page.subdomain');
     });
 
+require __DIR__ . '/auth.php';
+require __DIR__ . '/settings.php';
 /*
 |--------------------------------------------------------------------------
 | Path-based Page Serving (catch-all – keep last)
@@ -66,5 +68,3 @@ Route::get('/{slug}/{path?}', [PageServeController::class, 'serve'])
     ->where('slug', '[a-z0-9\-_]+')
     ->where('path', '.*')
     ->name('page.path');
-
-require __DIR__ . '/auth.php';

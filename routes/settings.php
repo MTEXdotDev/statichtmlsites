@@ -1,28 +1,16 @@
 <?php
 
-use App\Livewire\Settings\Appearance;
-use App\Livewire\Settings\Profile;
-use App\Livewire\Settings\Security;
+use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\PasswordController;
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
 
-Route::middleware(['auth'])->group(function () {
-    Route::redirect('settings', 'settings/profile');
+Route::middleware(['auth', 'verified'])->prefix('settings')->name('settings.')->group(function () {
+    Route::redirect('/', '/settings/profile')->name('index');
 
-    Route::livewire('settings/profile', Profile::class)->name('profile.edit');
-});
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::livewire('settings/appearance', Appearance::class)->name('appearance.edit');
-
-    Route::livewire('settings/security', Security::class)
-        ->middleware(
-            when(
-                Features::canManageTwoFactorAuthentication()
-                && Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword'),
-                ['password.confirm'],
-                [],
-            ),
-        )
-        ->name('security.edit');
+    Route::get('/password', [PasswordController::class, 'edit'])->name('password');
+    Route::put('/password', [PasswordController::class, 'update'])->name('password.update');
 });
