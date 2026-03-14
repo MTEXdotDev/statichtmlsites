@@ -1,14 +1,14 @@
 /**
- * file-manager.js  — loaded only on the file manager page.
+ * file-manager.js — loaded only on the file manager page.
  *
- * Alpine is provided by @fluxScripts (bundled with Livewire/Flux).
- * We must NOT import or start our own Alpine — Flux registers its modal
- * plugin on its own Alpine instance. We hook into it via alpine:init.
+ * Alpine is provided by @livewireScripts (Livewire 4 bundles Alpine 3).
+ * We register our data component via alpine:init — that hooks into
+ * Livewire's Alpine instance after it is created but before DOM init.
  *
- * CodeMirror 6 is tree-shaken and bundled here by Vite.
+ * Modals are plain Alpine x-show panels — no Flux Pro required.
  */
 
-import { EditorState, Compartment }               from '@codemirror/state';
+import { EditorState, Compartment }              from '@codemirror/state';
 import {
     EditorView, keymap, lineNumbers,
     highlightActiveLineGutter, highlightActiveLine,
@@ -22,14 +22,14 @@ import {
     indentOnInput, bracketMatching, foldGutter,
     syntaxHighlighting, defaultHighlightStyle,
 } from '@codemirror/language';
-import { html }        from '@codemirror/lang-html';
-import { css }         from '@codemirror/lang-css';
-import { javascript }  from '@codemirror/lang-javascript';
-import { json }        from '@codemirror/lang-json';
-import { xml }         from '@codemirror/lang-xml';
-import { oneDark }     from '@codemirror/theme-one-dark';
+import { html }       from '@codemirror/lang-html';
+import { css }        from '@codemirror/lang-css';
+import { javascript } from '@codemirror/lang-javascript';
+import { json }       from '@codemirror/lang-json';
+import { xml }        from '@codemirror/lang-xml';
+import { oneDark }    from '@codemirror/theme-one-dark';
 
-// ── CodeMirror state ──────────────────────────────────────────────────────────
+// ── CodeMirror ────────────────────────────────────────────────────────────────
 
 const langCompartment = new Compartment();
 let   editorView      = null;
@@ -39,7 +39,7 @@ function publishCursor(state) {
     const head = state.selection.main.head;
     const line = state.doc.lineAt(head);
     window.dispatchEvent(new CustomEvent('cm-cursor', {
-        detail: { line: line.number, col: head - line.from + 1, total: state.doc.lines },
+        detail: { line: line.number, col: head - line.from + 1 },
     }));
 }
 
@@ -64,10 +64,9 @@ function triggerSave() {
     getWire()?.call('saveFile', editorView.state.doc.toString());
 }
 
-export function createEditor(content, lang) {
+function createEditor(content, lang) {
     const host = document.getElementById('cm-host');
     if (!host) return;
-
     editorView?.destroy();
     editorView = null;
 
@@ -78,7 +77,7 @@ export function createEditor(content, lang) {
                 oneDark,
                 EditorView.theme({
                     '&':            { height: '100%' },
-                    '.cm-scroller': { overflow: 'auto', fontFamily: "ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, monospace" },
+                    '.cm-scroller': { overflow: 'auto', fontFamily: "ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,monospace" },
                     '.cm-content':  { padding: '8px 0' },
                     '.cm-gutters':  { background: 'transparent', border: 'none' },
                 }),
@@ -117,45 +116,72 @@ export function createEditor(content, lang) {
     publishCursor(editorView.state);
 }
 
-// ── Alpine component — registered on Flux/Livewire's Alpine instance ──────────
-//
-// We use alpine:init so our data component is registered BEFORE Alpine
-// processes the DOM, but AFTER Flux has registered its own plugins
-// (including x-flux-modal and $dispatch helpers).
+// ── Alpine component ──────────────────────────────────────────────────────────
 
 document.addEventListener('alpine:init', () => {
-    // Safety guard: window.Alpine is set by @fluxScripts before this fires.
-    if (!window.Alpine) return;
-
     window.Alpine.data('fileManager', () => ({
+        // Modal state — name of currently open modal, or null
+        modal: null,
+
+        // File tree — which directories are expanded
         openDirs: [],
+
+        // Context-menu state
         ctx: { show: false, x: 0, y: 0, item: null },
+
+        // Status-bar cursor info
         cursor: { line: 1, col: 1 },
 
-        isOpen(path)   { return this.openDirs.includes(path); },
-        toggleDir(path) {
+        // Drag-and-drop state
+        dragOver: false,
+
+        // ── Modal helpers ────────────────────────────────────────────────
+        openModal(name)  { this.modal = name; },
+        closeModal()     { this.modal = null; },
+        isModal(name)    { return this.modal === name; },
+
+        // ── File-tree helpers ────────────────────────────────────────────
+        isOpen(path)     { return this.openDirs.includes(path); },
+        toggleDir(path)  {
             this.openDirs = this.isOpen(path)
                 ? this.openDirs.filter(p => p !== path)
                 : [...this.openDirs, path];
         },
 
-        openContext(e, item) {
+        // ── Context menu ─────────────────────────────────────────────────
+        openCtx(e, item) {
+            e.preventDefault();
             this.ctx = { show: true, x: e.clientX, y: e.clientY, item };
         },
-        closeContext() {
-            this.ctx = { show: false, x: 0, y: 0, item: null };
+        closeCtx()       { this.ctx.show = false; },
+
+        // ── Drag-and-drop upload ─────────────────────────────────────────
+        onDrop(e) {
+            this.dragOver = false;
+            const files = Array.from(e.dataTransfer?.files ?? []);
+            if (!files.length) return;
+            files.forEach(file => {
+                const wire = getWire();
+                if (wire) wire.upload('upload', file, () => {}, () => {}, () => {});
+            });
         },
 
+        // ── Init ─────────────────────────────────────────────────────────
         init() {
+            // CodeMirror events
             window.addEventListener('cm-cursor', e => { this.cursor = e.detail; });
-
             window.addEventListener('load-editor', e => {
                 createEditor(e.detail.content, e.detail.language);
             });
 
-            window.addEventListener('click', () => this.closeContext());
+            // Livewire → Alpine modal control
+            window.addEventListener('open-modal',  e => this.openModal(e.detail?.name));
+            window.addEventListener('close-modal', () => this.closeModal());
+
+            // Close context menu on click/Escape
+            window.addEventListener('click', () => this.closeCtx());
             window.addEventListener('keydown', e => {
-                if (e.key === 'Escape') this.closeContext();
+                if (e.key === 'Escape') { this.closeCtx(); this.closeModal(); }
             });
         },
 

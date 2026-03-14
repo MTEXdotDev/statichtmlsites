@@ -3,7 +3,6 @@
 namespace App\Livewire;
 
 use App\Models\Page;
-use Flux\Flux;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
@@ -210,7 +209,7 @@ class FileManager extends Component
 
         $this->disk()->put($full, '');
         $this->newFileName = '';
-        Flux::modal('new-file')->close();
+        $this->dispatch('close-modal');
         $this->openFile($relative);
         unset($this->fileTree);
     }
@@ -238,7 +237,7 @@ class FileManager extends Component
         $this->disk()->makeDirectory($this->page->storagePath($relative));
 
         $this->newFolderName = '';
-        Flux::modal('new-folder')->close();
+        $this->dispatch('close-modal');
         $this->showFlash("Folder '{$name}' created.");
         unset($this->fileTree);
     }
@@ -250,7 +249,7 @@ class FileManager extends Component
         $this->deleteTarget     = $path;
         $this->deleteTargetName = basename($path);
         $this->deleteTargetType = $type;
-        Flux::modal('delete-confirm')->show();
+        $this->dispatch('open-modal', name: 'delete-confirm');
     }
 
     /** Execute the pending delete after modal confirmation. */
@@ -275,7 +274,7 @@ class FileManager extends Component
         $this->showFlash("Deleted {$this->deleteTargetName}.");
         $this->deleteTarget     = '';
         $this->deleteTargetName = '';
-        Flux::modal('delete-confirm')->close();
+        $this->dispatch('close-modal');
         unset($this->fileTree);
     }
 
@@ -339,7 +338,7 @@ class FileManager extends Component
 
         $this->upload = null;
         $this->showFlash("Uploaded {$name}.");
-        Flux::modal('upload')->close();
+        $this->dispatch('close-modal');
         unset($this->fileTree);
     }
 
@@ -360,7 +359,7 @@ class FileManager extends Component
         ]);
 
         $this->page->refresh();
-        Flux::modal('settings')->close();
+        $this->dispatch('close-modal');
         $this->showFlash('Settings saved.');
 
         if ($this->page->wasChanged('slug')) {
